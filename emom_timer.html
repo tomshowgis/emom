@@ -804,10 +804,10 @@ function openGarmin(id){
   const e=DB.log.find(x=>x.id===id); if(!e) return;
   openModal(`<h2>Wyślij do Garmin Connect</h2>
     <div class="sub">${esc(e.name)} · ${fmt(e.seconds)} · ${nf(e.reps)} powt. · ${e.kg} kg</div>
-    <div class="sub" style="margin-top:10px">Garmin nie ma otwartego API dla prywatnych kont, więc trening jedzie jako plik FIT (aktywność „Siła” z seriami, powtórzeniami i ciężarem).</div>
+    <div class="sub" style="margin-top:10px">Garmin nie ma otwartego API dla prywatnych kont, więc trening jedzie jako plik FIT (aktywność „Siła” z seriami, powtórzeniami i ciężarem). Garmin nie odbierze go sam – plik trzeba wskazać ręcznie.</div>
     <ol class="sub" style="margin:10px 0 0 18px;line-height:1.5">
-      <li>Zapisz albo udostępnij plik FIT (np. do Plików lub AirDropem na komputer).</li>
-      <li>Wejdź na Garmin Connect w przeglądarce → <b>Importuj dane</b> i wskaż plik.</li>
+      <li>Zapisz plik FIT (na iPhonie: <b>Zapisz do Plików</b>; możesz też wysłać AirDropem na komputer).</li>
+      <li>Otwórz Garmin Connect i zaloguj się. W oknie <b>Importuj dane</b> wybierz zapisany plik i potwierdź – dopiero wtedy trening pojawi się na koncie.</li>
     </ol>
     <div class="stack"><button class="btn" data-act="garmin-export" data-id="${e.id}">Zapisz / udostępnij plik FIT</button>
     <a class="btn secondary" href="https://connect.garmin.com/modern/import-data" target="_blank" rel="noopener">Otwórz import w Garmin Connect ↗</a>
