@@ -546,7 +546,7 @@ function renderLog(){
     if(open){ h+=`<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">`;
       h+=`<div class="ds">${rdWord(e.rounds)} planowane · zaliczone ${e.roundsDone} · ${e.minutes} min pracy</div>`;
       (e.items||[]).forEach(it=>{ if(it.rest) return; h+=`<div class="row" style="padding:6px 0"><div class="grow nm" style="font-size:15px">${esc(it.name)}${it.side?` <span class="side">${it.side==="L"?"lewa":"prawa"}</span>`:""}</div><div class="ds">${it.reps!=null?`${it.reps} powt./min${it.bw?" · bez kettla":""}`:(it.work!=null?`${it.work} s`:"")}</div></div>`; });
-      h+=`<button class="btn danger w100 small" style="margin-top:8px" data-act="log-delete" data-id="${e.id}">Usuń wpis</button></div>`; }
+      h+=`<div class="row" style="margin-top:8px"><button class="btn secondary small grow" data-act="garmin" data-id="${e.id}">Wyślij do Garmin (FIT)</button><button class="btn danger small" data-act="log-delete" data-id="${e.id}">Usuń</button></div></div>`; }
     h+=`</div>`; });
   const sc=$("log").scrollTop; $("log").innerHTML=h; $("log").scrollTop=sc;
 }
@@ -695,7 +695,7 @@ function renderSummary(){
     <div class="h2">Powtórzenia na minutę – popraw, jeśli było inaczej</div>
     ${plan.items.map((it,i)=>it.rest?"":`<div class="exrow"><div class="row"><div class="grow"><div class="nm">${esc(it.name)}${it.side?` <span class="side">${it.side==="L"?"lewa":"prawa"}</span>`:""}</div><div class="ds">${esc(it.label)}${it.bw?" · bez kettla":""}</div></div>${it.reps==null?`<div class="ds">na czas</div>`:stepper("sum-reps",SUM.reps[i],{step:1,min:0,max:200,idx:i})}</div></div>`).join("")}
     <div class="stat" style="margin-top:14px"><div><b>${nf(t.reps)}</b><span>powtórzeń</span></div><div><b>${nf(t.vol)}</b><span>kg przerzucone</span></div><div><b>${fmt(SUM.secs)}</b><span>czas</span></div></div>
-    <div class="stack"><button class="btn" data-act="sum-save">Zapisz w dzienniku</button><button class="btn secondary" data-act="sum-skip">Nie zapisuj</button></div>`;
+    <div class="stack"><button class="btn" data-act="sum-save">Zapisz w dzienniku</button><button class="btn secondary" data-act="sum-save-garmin">Zapisz i wyślij do Garmin</button><button class="btn secondary" data-act="sum-skip">Nie zapisuj</button></div>`;
   const sc=$("sheet").scrollTop; openModal(html,true); $("sheet").scrollTop=sc;
 }
 function saveSummary(){
@@ -713,6 +713,105 @@ function abortTimer(){
     <div class="stack">${mins>0?`<button class="btn" data-act="abort-save">Zapisz częściowy</button>`:""}
     <button class="btn danger" data-act="abort-drop">Odrzuć i wyjdź</button>
     <button class="btn secondary" data-act="modal-close">Wróć do treningu</button></div>`);
+}
+
+/* =====================================================================
+   EKSPORT FIT (Garmin Connect → Importuj dane)
+   Garmin nie udostępnia prywatnym osobom API do zapisu, więc trening wychodzi jako plik .FIT
+   (aktywność „Siła” z seriami: powtórzenia, ciężar, kategoria ćwiczenia). Koder pisze minimalny,
+   poprawny plik FIT: nagłówek, file_id, file_creator, event, record, set, lap, session, activity, CRC.
+   ===================================================================== */
+const FIT_EPOCH=631065600; // 1989-12-31T00:00:00Z
+const FIT_CAT={ "biceps-curl":7,"goblet-curl":7,"squatted-curl":7,"curl-press":7,"gunslinger":28,"curl-triceps-ext":30,
+  "situp-press":27,"side-drags":19,"plank-bell-taps":19,"reverse-plank":19,"around-the-slings":5,"kneeling-around-the-world":5,"halo":5,"reverse-mountain-climb":5,
+  "overhead-march":3,"russian-swing":12,"alt-swing":12,"american-swing":12,"swing-clean-push-press":18,"dead-clean-push-press-alt":18,
+  "goblet-clean-squat":28,"goblet-squat":28,"thruster":28,"bent-row-alt":23,"bent-over-row":23,"upright-row":23,"sumo-high-pull":23,"high-pull-alt":23,"high-pull-complex":29,
+  "goblet-back-lunge-alt":17,"front-rack-lunge":17,"split-stance-lunge":17,"kneeling-goblet-press":24,"goblet-shoulder-press":24,"push-press":24,"front-to-back":24,
+  "romanian-deadlift":8,"burpee":29,"goblet-floor-press":0,"horizontal-press-twist":0,"pushup":22,"front-raise":14,"goblet-front-side-raise-alt":14 };
+function fitCrc(bytes,len){
+  const T=[0x0000,0xCC01,0xD801,0x1400,0xF001,0x3C00,0x2800,0xE401,0xA001,0x6C00,0x7800,0xB401,0x5000,0x9C01,0x8801,0x4400]; let c=0;
+  for(let i=0;i<len;i++){ const b=bytes[i]; let t=T[c&0xF]; c=(c>>4)&0x0FFF; c=c^t^T[b&0xF]; t=T[c&0xF]; c=(c>>4)&0x0FFF; c=c^t^T[(b>>4)&0xF]; }
+  return c;
+}
+function fitEncoder(){
+  const buf=[]; const defs={};
+  const u8=v=>buf.push(v&0xFF), u16=v=>{u8(v);u8(v>>>8);}, u32=v=>{u16(v&0xFFFF);u16(Math.floor(v/65536)&0xFFFF);};
+  // typ: [rozmiar, base type, zapis, wartość „invalid”]
+  const T={enum:[1,0x00,u8,0xFF],u8:[1,0x02,u8,0xFF],u16:[2,0x84,u16,0xFFFF],u32:[4,0x86,u32,0xFFFFFFFF],u32z:[4,0x8C,u32,0]};
+  return {
+    def(local,global,fields){ defs[local]=fields; u8(0x40|local); u8(0); u8(0); u16(global); u8(fields.length); fields.forEach(f=>{ u8(f[0]); u8(T[f[1]][0]); u8(T[f[1]][1]); }); },
+    msg(local,values){ u8(local); defs[local].forEach((f,i)=>{ const t=T[f[1]], v=values[i]; t[2](v==null?t[3]:Math.round(v)); }); },
+    finish(){
+      const h=[14,0x10,0x54,0x08, buf.length&0xFF,(buf.length>>>8)&0xFF,(buf.length>>>16)&0xFF,(buf.length>>>24)&0xFF, 0x2E,0x46,0x49,0x54];
+      const hc=fitCrc(h,12); h.push(hc&0xFF,hc>>>8);
+      const all=new Uint8Array(h.length+buf.length+2); all.set(h,0); all.set(buf,h.length);
+      const c=fitCrc(all,all.length-2); all[all.length-2]=c&0xFF; all[all.length-1]=c>>>8; return all;
+    }
+  };
+}
+function buildFit(e){
+  const enc=fitEncoder();
+  const start=Math.floor(new Date(e.date).getTime()/1000)+PREP-FIT_EPOCH;
+  const total=Math.max(60,Math.floor(e.seconds||0)); const end=start+total;
+  const tz=-new Date(e.date).getTimezoneOffset()*60;
+  const items=(e.items||[]), len=items.length||1, mins=Math.min(e.minutes||0,Math.floor(total/60));
+  enc.def(0,0,[[0,"enum"],[1,"u16"],[2,"u16"],[3,"u32z"],[4,"u32"]]);      // file_id: type, manufacturer, product, serial, time_created
+  enc.msg(0,[4,255,1,(e.id%4000000000)||1,start]);
+  enc.def(1,49,[[0,"u16"]]); enc.msg(1,[100]);                                // file_creator: software_version
+  enc.def(2,21,[[253,"u32"],[0,"enum"],[1,"enum"],[4,"u8"]]);               // event: timestamp, event, event_type, event_group
+  enc.msg(2,[start,0,0,0]);
+  enc.def(3,20,[[253,"u32"]]);                                               // record: timestamp
+  enc.def(4,225,[[254,"u32"],[6,"u32"],[0,"u32"],[3,"u16"],[4,"u16"],[5,"enum"],[7,"u16"],[9,"u16"],[10,"u16"]]);
+  // set: timestamp, start_time, duration(ms), repetitions, weight(kg×16), set_type(0 rest/1 active), category, weight_display_unit(1 kg), message_index
+  let mi=0;
+  const set=(t0,dur,it)=>{ const active=!!it; const cat=active?(FIT_CAT[it.id]==null?65534:FIT_CAT[it.id]):null;
+    enc.msg(4,[t0+dur,t0,dur*1000, active&&it.reps!=null?it.reps:null, active?(it.bw?0:(e.kg||0)*16):null, active?1:0, cat, active?1:null, mi++]); };
+  enc.msg(3,[start]);
+  for(let m=0;m<mins;m++){ const it=items[m%len]||{rest:true}, t0=start+m*60;
+    if(it.rest){ set(t0,60,null); }
+    else if(it.work!=null&&it.work<60){ set(t0,it.work,it); set(t0+it.work,60-it.work,null); }
+    else set(t0,60,it);
+    enc.msg(3,[t0+60]); }
+  if(end>start+mins*60) enc.msg(3,[end]);
+  enc.def(5,19,[[253,"u32"],[2,"u32"],[7,"u32"],[8,"u32"],[0,"enum"],[1,"enum"],[25,"enum"],[39,"enum"],[254,"u16"]]);
+  // lap: timestamp, start_time, total_elapsed_time, total_timer_time, event(9 lap), event_type(1 stop), sport(10 training), sub_sport(20 strength), message_index
+  const rounds=Math.max(1,Math.ceil(mins/len)); let laps=0;
+  for(let r=0;r<rounds;r++){ const t0=start+r*len*60, t1=Math.min(end,start+(r+1)*len*60); if(t1<=t0) break;
+    enc.msg(5,[t1,t0,(t1-t0)*1000,(t1-t0)*1000,9,1,10,20,laps++]); }
+  if(!laps){ enc.msg(5,[end,start,total*1000,total*1000,9,1,10,20,laps++]); }
+  enc.msg(2,[end,0,4,0]);                                                    // event: stop_all
+  enc.def(6,18,[[253,"u32"],[2,"u32"],[7,"u32"],[8,"u32"],[0,"enum"],[1,"enum"],[5,"enum"],[6,"enum"],[25,"u16"],[26,"u16"],[254,"u16"]]);
+  // session: timestamp, start_time, elapsed, timer, event(8 session), event_type(1), sport(10), sub_sport(20), first_lap_index, num_laps, message_index
+  enc.msg(6,[end,start,total*1000,total*1000,8,1,10,20,0,laps,0]);
+  enc.def(7,34,[[253,"u32"],[0,"u32"],[1,"u16"],[2,"enum"],[3,"enum"],[4,"enum"],[5,"u32"]]);
+  // activity: timestamp, total_timer_time, num_sessions, type(0 manual), event(26 activity), event_type(1 stop), local_timestamp
+  enc.msg(7,[end,total*1000,1,0,26,1,end+tz]);
+  return enc.finish();
+}
+function fitFileName(e){ const d=new Date(e.date), z=n=>String(n).padStart(2,"0"); return `EMOM_${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}.fit`; }
+async function exportFit(id){
+  const e=DB.log.find(x=>x.id===id); if(!e) return;
+  const bytes=buildFit(e), name=fitFileName(e);
+  let file=null; try{ file=new File([bytes],name,{type:"application/octet-stream"}); }catch(err){}
+  if(file&&navigator.canShare&&navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file],title:name}); toast("Plik FIT udostępniony"); return; }catch(err){ if(err&&err.name==="AbortError") return; }
+  }
+  const blob=file||new Blob([bytes],{type:"application/octet-stream"}); const url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),10000); toast("Plik FIT pobrany");
+}
+function openGarmin(id){
+  const e=DB.log.find(x=>x.id===id); if(!e) return;
+  openModal(`<h2>Wyślij do Garmin Connect</h2>
+    <div class="sub">${esc(e.name)} · ${fmt(e.seconds)} · ${nf(e.reps)} powt. · ${e.kg} kg</div>
+    <div class="sub" style="margin-top:10px">Garmin nie ma otwartego API dla prywatnych kont, więc trening jedzie jako plik FIT (aktywność „Siła” z seriami, powtórzeniami i ciężarem).</div>
+    <ol class="sub" style="margin:10px 0 0 18px;line-height:1.5">
+      <li>Zapisz albo udostępnij plik FIT (np. do Plików lub AirDropem na komputer).</li>
+      <li>Wejdź na Garmin Connect w przeglądarce → <b>Importuj dane</b> i wskaż plik.</li>
+    </ol>
+    <div class="stack"><button class="btn" data-act="garmin-export" data-id="${e.id}">Zapisz / udostępnij plik FIT</button>
+    <a class="btn secondary" href="https://connect.garmin.com/modern/import-data" target="_blank" rel="noopener">Otwórz import w Garmin Connect ↗</a>
+    <button class="btn secondary" data-act="modal-close">Zamknij</button></div>`);
 }
 
 /* =====================================================================
@@ -751,6 +850,9 @@ const ACT={
   "abort-save":()=>{ closeModal(); openSummary(false); },
   "abort-drop":()=>{ closeModal(); leaveTimer(); },
   "sum-save":()=>saveSummary(),
+  "sum-save-garmin":()=>{ saveSummary(); openGarmin(DB.log[0].id); },
+  "garmin":d=>openGarmin(+d.id),
+  "garmin-export":d=>exportFit(+d.id),
   "sum-skip":()=>{ closeModal(); if(!SUM.complete) leaveTimer(); },
 };
 const FIELD={
