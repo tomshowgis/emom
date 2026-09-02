@@ -537,7 +537,7 @@ function renderLog(){
   h+=`</div><div class="sub" style="margin-top:10px">${first.toLocaleDateString("pl-PL",{month:"long"})}: ${monthList.length} ${plural(monthList.length,"trening","treningi","treningów")} · ${Math.round(agg(monthList).sec/60)} min · ${nf(agg(monthList).vol)} kg</div></div>`;
   const list=LOG.sel?(byDay[LOG.sel]||[]):DB.log;
   h+=`<div class="h2">${LOG.sel?"Treningi tego dnia":"Wszystkie treningi"}${LOG.sel?` <button class="chip" data-act="log-day" data-key="${LOG.sel}" style="margin-left:8px">pokaż wszystkie</button>`:""}</div>`;
-  if(!list.length) h+=`<div class="empty">Jeszcze nic tu nie ma. Po skończonym treningu zapisz go w dzienniku.</div>`;
+  if(!list.length) h+=`<div class="empty">Jeszcze nic tu nie ma. Po skończonym treningu zapisz go w dzienniku.${DB.log.length?"":`<br><br><button class="btn secondary small" data-act="log-sample">Dodaj przykładowy ukończony trening</button>`}</div>`;
   list.forEach(e=>{ const d=new Date(e.date), open=LOG.open===e.id;
     h+=`<div class="card tap" data-act="log-open" data-id="${e.id}"><div class="row"><div class="grow"><h3>${esc(e.name)}</h3>
       <div class="sub">${d.toLocaleDateString("pl-PL",{weekday:"short",day:"numeric",month:"short",year:"numeric"})} · ${d.toLocaleTimeString("pl-PL",{hour:"2-digit",minute:"2-digit"})}</div>
@@ -814,6 +814,17 @@ function openGarmin(id){
     <button class="btn secondary" data-act="modal-close">Zamknij</button></div>`);
 }
 
+/* ---- przykładowy ukończony trening (do testu dziennika i eksportu FIT) ---- */
+function addSampleLog(){
+  const s=getSet("p-biceps-abs"); const p=buildPlan(s,effective(s)); const len=p.items.length, n=len*p.rounds;
+  let reps=0,vol=0; for(let m=0;m<n;m++){ const it=p.items[m%len]; if(it.rest||it.reps==null) continue; reps+=it.reps; if(!it.bw) vol+=it.reps*p.kg; }
+  const start=new Date(Date.now()-90*60e3);
+  DB.log.unshift({ id:Date.now(), date:start.toISOString(), setId:p.setId, name:p.name+" (przykład)", rounds:p.rounds, roundsDone:p.rounds,
+    minutes:n, seconds:n*60, kg:p.kg, complete:true, reps, volume:vol,
+    items:p.items.map(it=>({id:it.id,name:it.name,side:it.side,reps:it.reps,work:it.work,bw:it.bw,rest:it.rest})) });
+  save();
+}
+
 /* =====================================================================
    AKCJE (delegacja zdarzeń)
    ===================================================================== */
@@ -841,6 +852,7 @@ const ACT={
   "c-move":d=>{ const i=+d.idx, j=i+(+d.d); if(j<0||j>=C.items.length) return; [C.items[i],C.items[j]]=[C.items[j],C.items[i]]; renderCreatorParts(); },
   "c-save":()=>{ if(!C.items.length) return; saveCreator(); goHome(); toast("Set zapisany"); },
   "c-start":()=>{ if(!C.items.length) return; const s=C.editId?saveCreator():creatorSet(); if(!C.editId){ s.id=null; } startTimer(buildPlan(s,{rounds:s.rounds,kg:s.kg,items:s.items})); },
+  "log-sample":()=>{ addSampleLog(); LOG.open=DB.log[0].id; renderLog(); toast("Dodano przykładowy trening"); },
   "log-month":d=>{ LOG.month=new Date(LOG.month.getFullYear(),LOG.month.getMonth()+(+d.d),1); LOG.sel=null; renderLog(); },
   "log-day":d=>{ LOG.sel=LOG.sel===d.key?null:d.key; renderLog(); },
   "log-open":d=>{ LOG.open=LOG.open===+d.id?null:+d.id; renderLog(); },
@@ -873,6 +885,10 @@ document.addEventListener("change",e=>{ const el=e.target.closest("input[data-fi
 document.addEventListener("keydown",e=>{ if(e.key==="Enter"&&e.target.matches("input[data-field]")) e.target.blur(); });
 
 renderHome();
+if(/[?&]demo=1/.test(location.search)){
+  if(!DB.log.some(e=>/\(przykład\)$/.test(e.name))) addSampleLog();
+  goLog(); LOG.open=DB.log[0].id; renderLog();
+}
 </script>
 </body>
 </html>
