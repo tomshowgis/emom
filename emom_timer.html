@@ -1,0 +1,776 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#161a22">
+<title>EMOM – skarbnica treningów</title>
+<style>
+  :root{
+    --bg:#161a22; --card:#1e2330; --ink:#f4f1ea; --muted:#8e94a3; --line:#2a3040;
+    --work:#ff7a18; --rest:#3a7bd5; --done:#39c37d; --danger:#e5484d;
+    --sat:env(safe-area-inset-top); --sab:env(safe-area-inset-bottom);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    -webkit-user-select:none;user-select:none;overflow:hidden;-webkit-tap-highlight-color:transparent}
+  input{-webkit-user-select:text;user-select:text}
+  button{font:inherit;border:0;cursor:pointer;color:inherit;background:none;touch-action:manipulation}
+  button:active{transform:scale(.97)}
+  button:focus-visible,input:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+  a{color:var(--work)}
+  b{font-weight:700}
+
+  /* ---- ekrany ---- */
+  .screen{position:fixed;inset:0;display:none;flex-direction:column;padding-top:max(10px,var(--sat));overflow:hidden}
+  .screen.on{display:flex}
+  .top{display:flex;align-items:center;gap:8px;padding:4px 14px 8px;min-height:60px}
+  .top h1{font-size:22px;font-weight:800;flex:1;line-height:1.1;letter-spacing:-.01em;min-width:0}
+  .back{width:48px;height:48px;border-radius:12px;font-size:28px;font-weight:700;background:var(--card);
+    display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 14px calc(120px + var(--sab))}
+  .bar{position:absolute;left:0;right:0;bottom:0;padding:16px 14px calc(12px + var(--sab));
+    background:linear-gradient(transparent,var(--bg) 35%);display:grid;gap:10px}
+  .bar.two{grid-template-columns:2fr 1fr}
+  .btn{font-size:20px;font-weight:700;padding:16px 12px;border-radius:14px;background:var(--work);color:#1a1a1a;min-height:60px;
+    display:flex;align-items:center;justify-content:center;text-decoration:none;text-align:center}
+  .btn.secondary{background:var(--line);color:var(--ink)}
+  .btn.danger{background:transparent;color:var(--danger);box-shadow:inset 0 0 0 2px var(--danger)}
+  .btn.small{font-size:17px;min-height:48px;padding:10px 16px}
+  .btn[disabled]{opacity:.35;pointer-events:none}
+  .stack{display:grid;gap:10px;margin-top:14px}
+  .w100{width:100%}
+
+  /* ---- karty i listy ---- */
+  .card{background:var(--card);border-radius:16px;padding:14px;margin-bottom:10px}
+  .card.tap{cursor:pointer}
+  .card h3{font-size:20px;font-weight:800;line-height:1.15}
+  .row{display:flex;align-items:center;gap:10px}
+  .grow{flex:1;min-width:0}
+  .sub{color:var(--muted);font-size:14px;margin-top:3px;line-height:1.35}
+  .nm{font-size:17px;font-weight:700;line-height:1.2}
+  .ds{font-size:13px;color:var(--muted);margin-top:2px;line-height:1.35}
+  .side{font-size:13px;font-weight:700;color:var(--work);text-transform:uppercase;letter-spacing:.04em}
+  .h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;margin:20px 0 8px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .chip{font-size:12px;padding:4px 9px;border-radius:999px;background:var(--line);color:var(--muted);font-weight:600}
+  .filters{display:flex;gap:8px;overflow-x:auto;padding:4px 0 10px;scrollbar-width:none}
+  .filters::-webkit-scrollbar{display:none}
+  .filters .chip{font-size:15px;padding:0 16px;min-height:46px;display:flex;align-items:center;white-space:nowrap;flex:0 0 auto;color:var(--ink)}
+  .filters .chip.on{background:var(--work);color:#1a1a1a}
+  .play,.add,.mini{width:48px;height:48px;border-radius:12px;background:var(--line);font-size:20px;
+    display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-weight:700}
+  .add{font-size:26px}
+  .add.on{background:var(--done);color:#0e2a1b}
+  .mini{width:44px;height:44px;font-size:18px}
+  .exrow .ctl{gap:6px}
+  .exrow .ctl .mini{width:40px;height:44px}
+  .exrow .ctl .stepper button{width:44px}
+  .mini.del{color:var(--danger)}
+  .num{width:26px;flex:0 0 auto;color:var(--muted);font-weight:700;font-variant-numeric:tabular-nums}
+  .exrow{padding:10px 0;border-top:1px solid var(--line)}
+  .exrow:first-child{border-top:0;padding-top:0}
+  .exrow:last-child{padding-bottom:0}
+  .exrow .row+.row{margin-top:8px}
+  .stepper{display:flex;align-items:center;gap:2px;flex:0 0 auto}
+  .stepper button{width:46px;height:46px;border-radius:12px;background:var(--line);font-size:26px;font-weight:700;line-height:1}
+  .stepper input{width:54px;height:46px;text-align:center;font:inherit;font-size:20px;font-weight:700;background:transparent;
+    border:0;color:var(--ink);font-variant-numeric:tabular-nums;-moz-appearance:textfield;appearance:textfield}
+  .stepper input::-webkit-outer-spin-button,.stepper input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .stepper .unit{font-size:14px;color:var(--muted);margin-left:4px;min-width:20px}
+  .big-input{width:100%;font:inherit;font-size:18px;padding:14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+  .big-input::placeholder{color:var(--muted)}
+  .stat{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .stat div{background:var(--bg);border-radius:12px;padding:10px 6px;text-align:center}
+  .stat b{display:block;font-size:22px;font-variant-numeric:tabular-nums;line-height:1.1}
+  .stat span{font-size:12px;color:var(--muted)}
+  .empty{color:var(--muted);text-align:center;padding:24px 10px;font-size:15px;line-height:1.4}
+
+  /* ---- kalendarz ---- */
+  .calhead{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .calhead b{flex:1;text-align:center;font-size:18px}
+  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+  .cal .wd{text-align:center;font-size:12px;color:var(--muted);padding:4px 0}
+  .cal .d{aspect-ratio:1;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;
+    font-variant-numeric:tabular-nums;background:var(--bg);position:relative;font-weight:600}
+  .cal .d.off{opacity:0;pointer-events:none}
+  .cal .d.has::after{content:"";position:absolute;bottom:4px;width:6px;height:6px;border-radius:50%;background:var(--work)}
+  .cal .d.today{box-shadow:inset 0 0 0 2px var(--muted)}
+  .cal .d.sel{background:var(--work);color:#1a1a1a}
+  .cal .d.sel::after{background:#1a1a1a}
+
+  /* ---- modal / toast ---- */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:flex-end;justify-content:center;z-index:50}
+  .modal.on{display:flex}
+  .sheet{background:var(--card);width:100%;max-width:600px;border-radius:20px 20px 0 0;padding:16px 16px calc(16px + var(--sab));
+    max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .sheet h2{font-size:22px;font-weight:800;line-height:1.15}
+  .video{position:relative;aspect-ratio:16/9;background:#000;border-radius:12px;overflow:hidden;margin:12px 0}
+  .video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  .offline{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;text-align:center;color:var(--muted);line-height:1.4}
+  .thumb{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-decoration:none;color:#fff}
+  .thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.75}
+  .thumb .playbig{position:relative;width:78px;height:78px;border-radius:50%;background:var(--work);color:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:32px;padding-left:6px;box-shadow:0 4px 20px rgba(0,0,0,.6)}
+  .thumb .thumbtxt{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-weight:700;font-size:15px;text-shadow:0 1px 4px #000}
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(110px + var(--sab));background:var(--done);color:#0e2a1b;
+    padding:12px 18px;border-radius:12px;font-weight:700;z-index:60;display:none;max-width:90vw;text-align:center}
+  .toast.on{display:block}
+
+  /* ---- timer (układ z v1) ---- */
+  #s-timer{padding:0}
+  #fill{position:absolute;left:0;right:0;bottom:0;height:0%;background:var(--work);opacity:.22;transition:height .25s linear,background .4s}
+  #app{position:relative;flex:1;display:flex;flex-direction:column;min-height:0;
+    padding:max(14px,var(--sat)) 22px max(16px,var(--sab))}
+  #app header{display:flex;align-items:center;gap:10px;font-size:15px;color:var(--muted);font-variant-numeric:tabular-nums}
+  #app header b{color:var(--ink);font-weight:600}
+  #app header .grow{text-align:center}
+  #app header .back{width:44px;height:44px;font-size:26px;margin-left:-8px}
+  #app header #t-video{margin:0 4px 0 0;font-size:18px}
+  #app header #t-video[hidden]{display:none}
+  .minute{margin-top:12px;font-size:15px;color:var(--work);font-weight:700;letter-spacing:.02em}
+  .name{margin-top:6px;font-size:clamp(34px,10vw,48px);font-weight:800;line-height:1.05;letter-spacing:-.01em}
+  .reps{margin-top:6px;font-size:clamp(22px,6.5vw,30px);font-weight:700;color:var(--work)}
+  .clock{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
+  .clock span{font-size:min(52vw,300px);font-weight:900;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.04em}
+  .clock.warn span{color:var(--work)}
+  .phase{text-align:center;font-size:18px;color:var(--muted);min-height:24px}
+  .next{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:16px;color:var(--muted)}
+  .next b{color:var(--ink);font-weight:600}
+  .controls{display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-top:18px}
+  .hint{margin-top:10px;font-size:13px;color:var(--muted);text-align:center}
+  .done .name{color:var(--done)}
+  @media (prefers-reduced-motion:reduce){#fill{transition:none} button:active{transform:none}}
+</style>
+</head>
+<body>
+
+<!-- ===== EKRAN GŁÓWNY ===== -->
+<section class="screen on" id="s-home">
+  <div class="top"><h1>EMOM · skarbnica treningów</h1></div>
+  <div class="scroll" id="home"></div>
+  <div class="bar two">
+    <button class="btn" data-act="go-creator">＋ Własny trening</button>
+    <button class="btn secondary" data-act="go-log">Dziennik</button>
+  </div>
+</section>
+
+<!-- ===== SZCZEGÓŁY SETU ===== -->
+<section class="screen" id="s-detail">
+  <div class="top"><button class="back" data-act="go-home" aria-label="Wróć">‹</button><h1 id="d-title"></h1></div>
+  <div class="scroll" id="detail"></div>
+  <div class="bar" id="d-bar"></div>
+</section>
+
+<!-- ===== KREATOR ===== -->
+<section class="screen" id="s-creator">
+  <div class="top"><button class="back" data-act="go-home" aria-label="Wróć">‹</button><h1 id="c-title">Własny trening</h1></div>
+  <div class="scroll" id="creator"></div>
+  <div class="bar two">
+    <button class="btn" data-act="c-start" id="c-start">Start</button>
+    <button class="btn secondary" data-act="c-save" id="c-save">Zapisz</button>
+  </div>
+</section>
+
+<!-- ===== DZIENNIK ===== -->
+<section class="screen" id="s-log">
+  <div class="top"><button class="back" data-act="go-home" aria-label="Wróć">‹</button><h1>Dziennik</h1></div>
+  <div class="scroll" id="log"></div>
+</section>
+
+<!-- ===== TIMER ===== -->
+<section class="screen" id="s-timer">
+  <div id="fill"></div>
+  <main id="app">
+    <header>
+      <button class="back" data-act="t-abort" aria-label="Zakończ trening">‹</button>
+      <span>Runda <b id="round">–</b> / <span id="rounds">4</span></span>
+      <span class="grow"></span>
+      <button class="back" id="t-video" data-act="t-video" aria-label="Film z ćwiczeniem">▶</button>
+      <span>Łącznie <b id="total">16:00</b></span>
+    </header>
+    <div class="minute" id="minute">Gotowy?</div>
+    <div class="name" id="name">EMOM</div>
+    <div class="reps" id="reps"></div>
+    <div class="clock" id="clock"><span id="sec">60</span></div>
+    <div class="phase" id="phase"></div>
+    <div class="next" id="next"></div>
+    <div class="controls">
+      <button id="main" class="btn">Start</button>
+      <button id="reset" class="btn secondary">Od nowa</button>
+    </div>
+    <div class="hint">Dźwięk i wibracja co minutę, sygnał 3-2-1 przed zmianą. Ekran nie gaśnie.</div>
+  </main>
+</section>
+
+<div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =====================================================================
+   DANE: filmy źródłowe, biblioteka ćwiczeń, predefiniowane sety
+   ===================================================================== */
+const VIDEOS = {
+  "BWao1Cu1RSg":{t:"Biceps and Abs on Fire",ch:"Vadim Kettlebell"},
+  "hKEb4fulI0I":{t:"30-Minute EMOM Kettlebell Workout",ch:"Vadim Kettlebell"},
+  "WoA-TfiiwYk":{t:"EMOM 40' Full Body",ch:"Vadim Kettlebell"},
+  "PLACE-S2zr4":{t:"Full Bell Marathon – 60-min EMOM",ch:"Vadim Kettlebell"},
+  "-26-YjRIsd8":{t:"21-Min EMOM Big Arms Pump",ch:"Vadim Kettlebell"},
+  "l09btQuJM5s":{t:"10 Min EMOM – High Pull Complex",ch:"Vadim Kettlebell"},
+  "qKKeChN3aJI":{t:"20-Minute EMOM 40/20 – Ab Assault",ch:"Vadim Kettlebell"},
+  "QopS65pu0Zk":{t:"20' Upper Body EMOM – Row Relentless",ch:"Vadim Kettlebell"},
+  "BWYeJVSVT6E":{t:"400 Rep Shoulder & Arm Grinder",ch:"Vadim Kettlebell"},
+  "__WvCVDEkNM":{t:"For Time – 30 min cap",ch:"Vadim Kettlebell"},
+  "2jyYS8B0TK8":{t:"Beginner Friendly Kettlebell Complex (Full Body)",ch:"FitDad"},
+  "h6xk6K1ff00":{t:"10 kettlebell abs exercises",ch:"Vadim Kettlebell"},
+  "p5dB_vxmeUY":{t:"15 Minute Upper Body Kettlebell Workout",ch:"Kingdom Kettlebells"},
+};
+const TAGS = ["biceps","triceps","barki","klatka","plecy","brzuch","nogi","pośladki","cardio"];
+
+/* reps = domyślne powtórzenia na minutę, range = zakres z filmu, work = sekundy pracy (potem przerwa),
+   alt = naprzemiennie, sided = osobna minuta na stronę (L/P), bw = bez kettla (nie liczy się do kg) */
+const EXERCISES = [
+  {id:"biceps-curl",name:"Biceps Curl",desc:"Uginanie ramion z kettlem trzymanym za rogi; tułów nieruchomo, bez zamachu.",reps:10,range:"8–12",tags:["biceps"],src:"BWao1Cu1RSg"},
+  {id:"situp-press",name:"Situp Press",desc:"Brzuszek z kettlem przy klatce, na górze wyciśnięcie nad głowę.",reps:10,range:"8–12",tags:["brzuch","barki"],src:"BWao1Cu1RSg"},
+  {id:"side-drags",name:"Plank Side Drag",desc:"W podporze przodem przeciągasz kettla pod sobą na drugą stronę; biodra stabilne.",reps:14,range:"12–16",alt:true,tags:["brzuch","barki"],src:"BWao1Cu1RSg"},
+  {id:"overhead-march",name:"Overhead March",desc:"Marsz w miejscu z kettlem wyciśniętym nad głowę, wysokie kolana.",work:45,tags:["barki","brzuch"],src:"BWao1Cu1RSg"},
+  {id:"russian-swing",name:"Russian Swing",desc:"Wymach oburącz do wysokości klatki; napęd z bioder, ramiona luźne.",reps:20,range:"16–20",tags:["pośladki","nogi","plecy","cardio"],src:"hKEb4fulI0I"},
+  {id:"bent-row-alt",name:"Bent Row (Alt)",desc:"Wiosłowanie jednorącz w opadzie tułowia, zmiana ręki co powtórzenie.",reps:14,range:"14–16",alt:true,tags:["plecy","biceps"],src:"hKEb4fulI0I"},
+  {id:"goblet-back-lunge-alt",name:"Goblet Back Lunge (Alt)",desc:"Wykrok w tył z kettlem przy klatce, naprzemiennie na obie nogi.",reps:14,alt:true,tags:["nogi","pośladki"],src:"hKEb4fulI0I"},
+  {id:"kneeling-goblet-press",name:"Kneeling Goblet Press",desc:"Wyciskanie kettla nad głowę w klęku obunóż; napięty brzuch i pośladki.",reps:12,tags:["barki","triceps","brzuch"],src:"hKEb4fulI0I"},
+  {id:"sumo-high-pull",name:"Sumo High Pull",desc:"Z szerokiego rozkroku wyciągasz kettla do brody, łokcie wysoko.",reps:12,tags:["barki","plecy","nogi"],src:"hKEb4fulI0I"},
+  {id:"alt-swing",name:"Alternating Swing",desc:"Wymach jednorącz ze zmianą ręki w górnym punkcie każdego powtórzenia.",reps:16,alt:true,tags:["pośladki","nogi","cardio"],src:"hKEb4fulI0I"},
+  {id:"halo",name:"Halo (Alt)",desc:"Obwodzenie kettla wokół głowy, naprzemiennie w obie strony; żebra ściągnięte.",reps:14,alt:true,tags:["barki","brzuch"],src:"hKEb4fulI0I"},
+  {id:"american-swing",name:"American Swing",desc:"Wymach oburącz aż nad głowę; pełny wyprost bioder na górze.",reps:16,range:"14–20",tags:["pośladki","barki","cardio"],src:"hKEb4fulI0I"},
+  {id:"high-pull-alt",name:"High Pull (Alt)",desc:"Podciąganie kettla jednorącz do brody ze zmianą ręki.",reps:14,alt:true,tags:["barki","plecy"],src:"hKEb4fulI0I"},
+  {id:"front-rack-lunge",name:"Front Rack Lunge",desc:"Wykrok z kettlem w pozycji rack na jednym barku; osobna minuta na każdą stronę.",reps:8,range:"6–10",sided:true,tags:["nogi","pośladki","brzuch"],src:"WoA-TfiiwYk"},
+  {id:"gunslinger",name:"Gunslinger",desc:"Przysiad z kettlem przy boku, a na górze uginanie ramienia; osobna minuta na stronę.",reps:10,range:"8–12",sided:true,tags:["nogi","biceps"],src:"WoA-TfiiwYk"},
+  {id:"swing-clean-push-press",name:"Swing Clean Push Press",desc:"Wymach, zarzut na bark i wyciśnięcie z pomocą nóg; osobna minuta na stronę.",reps:8,range:"6–10",sided:true,tags:["nogi","barki","plecy","cardio"],src:"WoA-TfiiwYk"},
+  {id:"reverse-plank",name:"Reverse Plank",desc:"Odwrócona deska na dłoniach, biodra wysoko, bez kettla.",work:45,bw:true,tags:["brzuch","pośladki"],src:"WoA-TfiiwYk"},
+  {id:"goblet-clean-squat",name:"Goblet Clean Squat",desc:"Zarzut kettla oburącz do pozycji goblet i przysiad.",reps:9,range:"8–10",tags:["nogi","pośladki","plecy"],src:"PLACE-S2zr4"},
+  {id:"burpee",name:"Burpee",desc:"Padnij-powstań z wyskokiem, bez kettla.",reps:9,range:"8–10",bw:true,tags:["cardio","nogi","klatka"],src:"PLACE-S2zr4"},
+  {id:"goblet-shoulder-press",name:"Goblet Shoulder Press",desc:"Wyciskanie kettla trzymanego za rogi nad głowę, stojąc.",reps:11,range:"10–12",tags:["barki","triceps"],src:"PLACE-S2zr4"},
+  {id:"romanian-deadlift",name:"Romanian Deadlift",desc:"Szybki martwy ciąg rumuński z kettlem; plecy proste, biodra w tył.",reps:18,range:"16–20",tags:["pośladki","nogi","plecy"],src:"PLACE-S2zr4"},
+  {id:"dead-clean-push-press-alt",name:"Dead Clean Push Press (Alt)",desc:"Zarzut kettla z ziemi i wyciśnięcie z podrzutem nóg, zmiana ręki.",reps:13,range:"12–14",alt:true,tags:["nogi","barki","plecy","cardio"],src:"PLACE-S2zr4"},
+  {id:"kneeling-around-the-world",name:"Kneeling Around The World (Alt)",desc:"Przekładanie kettla wokół tułowia w klęku, zmiana kierunku co powtórzenie.",reps:17,range:"16–18",alt:true,tags:["brzuch","barki"],src:"PLACE-S2zr4"},
+  {id:"curl-triceps-ext",name:"Curl to Triceps Extension",desc:"Uginanie ramion i od razu wyprost kettla nad głową.",reps:12,tags:["biceps","triceps"],src:"-26-YjRIsd8"},
+  {id:"squatted-curl",name:"Squatted Curl",desc:"Uginanie ramion trzymając pozycję przysiadu.",reps:12,tags:["biceps","nogi"],src:"-26-YjRIsd8"},
+  {id:"goblet-front-side-raise-alt",name:"Goblet Front/Side Raise (Alt)",desc:"Unoszenie kettla na przemian przodem i bokiem, ramiona proste.",reps:12,alt:true,tags:["barki"],src:"-26-YjRIsd8"},
+  {id:"reverse-mountain-climb",name:"Reverse Mountain Climb",desc:"Podpór tyłem, naprzemienne przyciąganie kolan do klatki, bez kettla.",reps:24,alt:true,bw:true,tags:["brzuch"],src:"-26-YjRIsd8"},
+  {id:"high-pull-complex",name:"High Pull Complex",desc:"Kompleks w jednej minucie: 4 high pull, 4 przysiady, 4 thrustery, 4 push pressy.",reps:16,range:"4+4+4+4",tags:["nogi","barki","cardio"],src:"l09btQuJM5s"},
+  {id:"thruster",name:"Goblet Thruster",desc:"Przysiad goblet i płynne wyciśnięcie nad głowę.",reps:10,tags:["nogi","barki","cardio"],src:"l09btQuJM5s"},
+  {id:"push-press",name:"Push Press",desc:"Wyciśnięcie kettla znad barku z pomocą krótkiego ugięcia kolan.",reps:8,tags:["barki","nogi"],src:"l09btQuJM5s"},
+  {id:"around-the-slings",name:"Around The Slings (Alt)",desc:"Przekładanie kettla po skosie wokół tułowia (w klęku lub stojąc), kontrolowany skręt.",reps:16,alt:true,tags:["brzuch","barki"],src:"qKKeChN3aJI"},
+  {id:"plank-bell-taps",name:"Plank Bell Taps",desc:"W podporze przodem dotykasz kettla naprzemiennie dłońmi; biodra nieruchomo.",reps:20,alt:true,bw:true,tags:["brzuch","barki"],src:"qKKeChN3aJI"},
+  {id:"bent-over-row",name:"Goblet Bent Row",desc:"Wiosłowanie oburącz w opadzie, łokcie ciągną do bioder.",reps:12,tags:["plecy","biceps"],src:"QopS65pu0Zk"},
+  {id:"pushup",name:"Pushup",desc:"Pompki na podłodze, bez kettla.",reps:15,bw:true,tags:["klatka","triceps"],src:"QopS65pu0Zk"},
+  {id:"goblet-floor-press",name:"Goblet Floor Press",desc:"Wyciskanie kettla leżąc na plecach; łokcie dotykają podłogi.",reps:15,tags:["klatka","triceps"],src:"QopS65pu0Zk"},
+  {id:"front-raise",name:"Front Raise",desc:"Unoszenie kettla przodem do wysokości oczu, ramiona proste.",reps:10,tags:["barki"],src:"BWYeJVSVT6E"},
+  {id:"front-to-back",name:"Front to Back",desc:"Unoszenie kettla przodem i przełożenie nad głową za plecy, powrót tą samą drogą.",reps:10,tags:["barki","triceps"],src:"BWYeJVSVT6E"},
+  {id:"upright-row",name:"Upright Row",desc:"Wiosłowanie stojąc; kettel wędruje wzdłuż tułowia do brody.",reps:10,tags:["barki","plecy"],src:"BWYeJVSVT6E"},
+  {id:"goblet-curl",name:"Goblet Curl",desc:"Uginanie ramion oburącz z kettlem trzymanym za rogi.",reps:10,tags:["biceps"],src:"BWYeJVSVT6E"},
+  {id:"horizontal-press-twist",name:"Horizontal Press + Twist",desc:"Wyciśnięcie kettla przed siebie i skręt tułowia w lewo i w prawo (to 1 powt.).",reps:5,tags:["klatka","brzuch","barki"],src:"2jyYS8B0TK8"},
+  {id:"goblet-squat",name:"Goblet Squat",desc:"Przysiad z kettlem przy klatce; klatka wysoko, kolana na zewnątrz.",reps:10,range:"10–12",tags:["nogi","pośladki"],src:"2jyYS8B0TK8"},
+  {id:"split-stance-lunge",name:"Split-Stance Lunge",desc:"Wykrok w rozkroku z kettlem trzymanym jak walizka, po 5 na stronę.",reps:10,tags:["nogi","pośladki"],src:"2jyYS8B0TK8"},
+  {id:"curl-press",name:"Curl + Press",desc:"Uginanie ramion, a potem wyciśnięcie nad głowę; kontrolowany powrót.",reps:6,range:"6–8",tags:["biceps","barki"],src:"2jyYS8B0TK8"},
+  {id:"rest",name:"Przerwa",desc:"Cała minuta odpoczynku – oddychaj i wracaj do siebie.",rest:true,tags:[],src:null},
+];
+const EXMAP = Object.fromEntries(EXERCISES.map(e=>[e.id,e]));
+
+const I=(id,reps,range,o)=>Object.assign({id,reps:reps==null?null:reps,range:range||null},o||{});
+const PRESETS = [
+  {id:"p-biceps-abs",name:"Biceps & Abs on Fire",focus:"biceps + brzuch",src:"BWao1Cu1RSg",rounds:4,items:[
+    I("biceps-curl",10,"8–12"),I("situp-press",10,"8–12"),I("side-drags",14,"12–16"),I("overhead-march",null,null,{work:45})]},
+  {id:"p-big-arms",name:"Big Arms Pump",focus:"biceps + triceps + barki",src:"-26-YjRIsd8",rounds:3,items:[
+    I("curl-triceps-ext",12),I("squatted-curl",12),I("goblet-shoulder-press",12),I("bent-row-alt",16),
+    I("goblet-front-side-raise-alt",12),I("side-drags",16),I("reverse-mountain-climb",24)]},
+  {id:"p-upper",name:"Upper Body · Row Relentless",focus:"plecy + barki + klatka",src:"QopS65pu0Zk",rounds:4,items:[
+    I("bent-row-alt",12,"10–14"),I("bent-over-row",15,"MAX"),I("goblet-shoulder-press",10,"8–12"),I("pushup",15,"MAX"),I("goblet-floor-press",15,"MAX")]},
+  {id:"p-abs-4020",name:"Ab Assault 40/20",focus:"brzuch (40 s pracy / 20 s przerwy)",src:"qKKeChN3aJI",rounds:5,items:[
+    I("around-the-slings",16,null,{work:40}),I("situp-press",12,null,{work:40}),I("plank-bell-taps",20,null,{work:40}),I("reverse-mountain-climb",24,null,{work:40})]},
+  {id:"p-full30",name:"Full Body EMOM 30",focus:"całe ciało",src:"hKEb4fulI0I",rounds:3,items:[
+    I("russian-swing",20),I("bent-row-alt",14),I("goblet-back-lunge-alt",14),I("kneeling-goblet-press",12),I("sumo-high-pull",12),
+    I("alt-swing",16),I("halo",14),I("american-swing",16),I("high-pull-alt",14),I("rest")]},
+  {id:"p-grind40",name:"Full-Body EMOM Grind 40",focus:"nogi + barki + brzuch",src:"WoA-TfiiwYk",rounds:5,items:[
+    I("front-rack-lunge",8,"6–10",{side:"L"}),I("front-rack-lunge",8,"6–10",{side:"R"}),I("gunslinger",10,"8–12",{side:"L"}),I("gunslinger",10,"8–12",{side:"R"}),
+    I("swing-clean-push-press",8,"6–10",{side:"L"}),I("swing-clean-push-press",8,"6–10",{side:"R"}),I("american-swing",17,"14–20"),I("reverse-plank",null,null,{work:45})]},
+  {id:"p-marathon60",name:"Full Bell Marathon 60",focus:"całe ciało · maraton",src:"PLACE-S2zr4",rounds:6,items:[
+    I("goblet-clean-squat",9,"8–10"),I("burpee",9,"8–10"),I("goblet-shoulder-press",11,"10–12"),I("romanian-deadlift",18,"16–20"),
+    I("dead-clean-push-press-alt",13,"12–14"),I("russian-swing",18,"16–20"),I("alt-swing",15,"14–16"),I("kneeling-around-the-world",17,"16–18"),
+    I("bent-row-alt",18,"16–20"),I("overhead-march",null,null,{work:45})]},
+  {id:"p-highpull10",name:"High Pull Complex 10",focus:"nogi + barki · kompleks",src:"l09btQuJM5s",rounds:10,items:[
+    I("high-pull-complex",16,"4+4+4+4")]},
+  /* zestawy autorskie zbudowane z biblioteki */
+  {id:"a-legs",name:"Nogi & pośladki",focus:"nogi + pośladki",src:null,rounds:5,items:[
+    I("goblet-squat",12),I("goblet-back-lunge-alt",14),I("romanian-deadlift",16),I("russian-swing",20)]},
+  {id:"a-shoulders",name:"Barki",focus:"barki + core",src:null,rounds:4,items:[
+    I("goblet-shoulder-press",10),I("halo",14),I("goblet-front-side-raise-alt",12),I("overhead-march",null,null,{work:45})]},
+  {id:"a-back-biceps",name:"Plecy & biceps",focus:"plecy + biceps",src:null,rounds:4,items:[
+    I("bent-row-alt",14),I("goblet-curl",10),I("sumo-high-pull",12),I("curl-press",8)]},
+  {id:"a-full12",name:"Full body express",focus:"całe ciało · 12 min",src:null,rounds:3,items:[
+    I("russian-swing",20),I("goblet-squat",10),I("goblet-shoulder-press",10),I("situp-press",10)]},
+];
+
+/* =====================================================================
+   STAN (localStorage)
+   ===================================================================== */
+const KEY="emom_v2";
+const DEFAULT_DB=()=>({v:2,custom:[],prefs:{},log:[],last:null,kg:16});
+let DB=(()=>{ try{ const d=JSON.parse(localStorage.getItem(KEY)); if(d&&d.v===2) return Object.assign(DEFAULT_DB(),d); }catch(e){} return DEFAULT_DB(); })();
+function save(){ try{ localStorage.setItem(KEY,JSON.stringify(DB)); }catch(e){} }
+
+/* =====================================================================
+   POMOCNICZE
+   ===================================================================== */
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt=s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,"0")}`;
+const nf=n=>Math.round(n).toLocaleString("pl-PL");
+function plural(n,one,few,many){ n=Math.abs(n); if(n===1) return one; const r=n%10, h=n%100; return (r>=2&&r<=4&&!(h>=12&&h<=14))?few:many; }
+const exWord=n=>`${n} ${plural(n,"ćwiczenie","ćwiczenia","ćwiczeń")}`;
+const rdWord=n=>`${n} ${plural(n,"runda","rundy","rund")}`;
+const setMeta=(len,rounds)=>`${exWord(len)} × ${rdWord(rounds)} · ${len*rounds} min`;
+function when(iso){
+  const d=new Date(iso), t=new Date(); const dd=Math.round((new Date(t.getFullYear(),t.getMonth(),t.getDate())-new Date(d.getFullYear(),d.getMonth(),d.getDate()))/864e5);
+  if(dd===0) return "dziś"; if(dd===1) return "wczoraj";
+  return d.toLocaleDateString("pl-PL",{day:"numeric",month:"short"});
+}
+const dayKey=d=>`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+
+function itemLabel(it){
+  const ex=EXMAP[it.id]; if(!ex) return "";
+  if(ex.rest) return "cała minuta";
+  let s;
+  if(it.work!=null) s=`${it.work} s`+(it.reps!=null?" pracy":"");
+  else s=`${it.range?it.range:it.reps} powt.`;
+  if(ex.alt&&it.work==null) s+=" naprzemiennie";
+  return s;
+}
+function getSet(id){ return PRESETS.find(s=>s.id===id)||DB.custom.find(s=>s.id===id)||null; }
+function effective(s){
+  const p=s.custom?{}:(DB.prefs[s.id]||{});
+  const items=s.items.map((it,i)=>{ const o=Object.assign({},it);
+    if(!s.custom&&p.reps&&p.reps[i]!=null){ if(o.work!=null) o.work=p.reps[i]; else { o.reps=p.reps[i]; o.range=null; } }
+    return o; });
+  return { rounds:(s.custom?s.rounds:p.rounds)||s.rounds, kg:(s.custom?s.kg:p.kg)??DB.kg, items };
+}
+function setTags(s){ const t=[]; s.items.forEach(it=>(EXMAP[it.id]||{tags:[]}).tags.forEach(x=>{ if(!t.includes(x)) t.push(x); })); return t; }
+function planVolume(items,rounds,kg){ let reps=0,vol=0; items.forEach(it=>{ const ex=EXMAP[it.id]; if(!ex||ex.rest||it.reps==null) return; const r=it.reps*rounds; reps+=r; if(!ex.bw) vol+=r*kg; }); return {reps,vol}; }
+function buildPlan(s,e){
+  return { setId:s.id||null, name:s.name, rounds:e.rounds, kg:e.kg, src:s.src||null,
+    items:e.items.map(it=>{ const ex=EXMAP[it.id]; return { id:it.id, name:ex.name, side:it.side||null, reps:it.reps==null?null:it.reps,
+      work:it.work==null?null:it.work, rest:!!ex.rest, bw:!!ex.bw, label:itemLabel(it), src:ex.src||null }; }) };
+}
+function stepper(field,value,o){
+  o=o||{}; const idx=o.idx==null?"":` data-idx="${o.idx}"`;
+  return `<div class="stepper"><button data-act="step" data-d="-1" aria-label="Mniej">−</button>`+
+    `<input type="number" inputmode="numeric" pattern="[0-9]*" data-field="${field}"${idx} data-step="${o.step||1}" data-min="${o.min==null?0:o.min}" data-max="${o.max==null?999:o.max}" value="${value==null?0:value}">`+
+    `<button data-act="step" data-d="1" aria-label="Więcej">+</button>${o.unit?`<span class="unit">${o.unit}</span>`:""}</div>`;
+}
+function num(inp){ let v=parseInt(inp.value,10); if(isNaN(v)) v=+inp.dataset.min||0; v=Math.max(+inp.dataset.min,Math.min(+inp.dataset.max,v)); inp.value=v; return v; }
+function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("on"); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("on"),1900); }
+
+/* ---- modal ---- */
+function openModal(html,lock){ const m=$("modal"); $("sheet").innerHTML=html; m.classList.add("on"); m.dataset.lock=lock?"1":""; }
+function closeModal(){ const m=$("modal"); m.classList.remove("on"); $("sheet").innerHTML=""; m.dataset.lock=""; }
+$("modal").addEventListener("click",e=>{ if(e.target.id==="modal"&&!$("modal").dataset.lock) closeModal(); });
+
+/* ---- popup YouTube ----
+   Od 2025 YouTube wymaga nagłówka Referer, inaczej player zgłasza „Błąd konfiguracji odtwarzacza” (153).
+   Strona otwarta z dysku (file://) nigdy go nie wysyła. Dlatego z dysku: albo osadzamy player przez własną
+   stronę pośrednią (YT_PROXY = adres wgranego na hosting https pliku yt_embed.html), albo pokazujemy
+   miniaturę i otwieramy film w aplikacji YouTube. Przez http(s) embed działa bezpośrednio. */
+let YT_PROXY="https://tomshowgis.github.io/emom/yt_embed.html"; // strona pośrednia dla trybu file:// (repo tomshowgis/emom)
+let videoOpen=null;
+function ytMode(){ if(location.protocol!=="file:") return "direct"; return YT_PROXY?"proxy":"thumb"; }
+function openVideo(vid,mode,exName){
+  const v=VIDEOS[vid]||{t:"Film",ch:""}; const url=`https://youtu.be/${vid}`; videoOpen=vid;
+  const online=navigator.onLine!==false; mode=mode||ytMode();
+  let box;
+  if(!online) box=`<div class="offline">Brak internetu – film wymaga połączenia.<br>Sam timer działa normalnie offline.</div>`;
+  else if(mode==="thumb") box=`<a class="thumb" href="${url}" target="_blank" rel="noopener" aria-label="Odtwórz w YouTube"><img src="https://i.ytimg.com/vi/${vid}/hqdefault.jpg" alt="" onerror="this.style.display='none'"><span class="playbig">▶</span><span class="thumbtxt">Odtwórz w aplikacji YouTube</span></a>`;
+  else { const src=mode==="proxy"?`${YT_PROXY}?v=${encodeURIComponent(vid)}`:`https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&playsinline=1&rel=0`;
+    box=`<iframe id="vframe" src="${src}" title="${esc(v.t)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`; }
+  openModal(`<div class="row"><h2 class="grow">${esc(v.t)}</h2><button class="play" data-act="modal-close" aria-label="Zamknij">✕</button></div>
+    <div class="sub">${esc(v.ch)} · YouTube${exName?` · ćwiczenie: <b>${esc(exName)}</b>`:""}</div>
+    <div class="video" id="vbox">${box}</div>
+    ${(online&&mode==="thumb")?`<div class="sub" style="margin:-4px 0 12px">Z pliku na dysku YouTube nie pozwala osadzić playera, więc film otworzy się w aplikacji YouTube.</div>`:""}
+    <a class="btn secondary" href="${url}" target="_blank" rel="noopener">Otwórz w YouTube ↗</a>
+    <button class="btn secondary w100" style="margin-top:10px" data-act="modal-close">Zamknij</button>`);
+  if(online&&mode!=="thumb"){ const f=$("vframe"); let done=false; f.addEventListener("load",()=>{done=true;});
+    setTimeout(()=>{ if(!done&&videoOpen===vid&&$("vbox")) $("vbox").insertAdjacentHTML("beforeend",`<div class="offline" style="background:rgba(0,0,0,.85)">Film nie wczytał się – sprawdź internet albo otwórz go w YouTube poniżej.</div>`); },8000); }
+}
+window.addEventListener("offline",()=>{ if(videoOpen&&$("vbox")) $("vbox").innerHTML=`<div class="offline">Utracono połączenie – film wymaga internetu.<br>Timer działa dalej offline.</div>`; });
+
+/* =====================================================================
+   NAWIGACJA
+   ===================================================================== */
+const view={screen:"home",setId:null};
+function show(name){ document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("on",s.id==="s-"+name)); view.screen=name; window.scrollTo(0,0); }
+function goHome(){ renderHome(); show("home"); }
+function goDetail(id){ view.setId=id; renderDetail(); show("detail"); $("detail").scrollTop=0; }
+function goCreator(editId){ initCreator(editId); renderCreator(); show("creator"); $("creator").scrollTop=0; }
+function goLog(){ LOG.month=new Date(); LOG.sel=null; LOG.open=null; renderLog(); show("log"); $("log").scrollTop=0; }
+
+/* =====================================================================
+   EKRAN GŁÓWNY
+   ===================================================================== */
+function setCard(s){
+  const e=effective(s), tags=setTags(s).slice(0,5);
+  return `<div class="card tap" data-act="open-set" data-id="${s.id}"><div class="row"><div class="grow">
+    <h3>${esc(s.name)}</h3>${s.focus?`<div class="sub">${esc(s.focus)}</div>`:""}
+    <div class="sub">${setMeta(s.items.length,e.rounds)}</div>
+    <div class="chips">${tags.map(t=>`<span class="chip">${t}</span>`).join("")}</div></div>
+    ${s.src?`<button class="play" data-act="video" data-vid="${s.src}" aria-label="Film">▶</button>`:""}</div></div>`;
+}
+function renderHome(){
+  let h="";
+  if(DB.last){ const p=DB.last.plan;
+    h+=`<div class="h2">Ostatni trening</div><div class="card tap" data-act="last-open"><div class="row"><div class="grow">
+      <h3>${esc(p.name)}</h3><div class="sub">${setMeta(p.items.length,p.rounds)} · ${p.kg} kg · ${when(DB.last.at)}</div></div>
+      <button class="btn small" data-act="last-start">Start</button></div></div>`; }
+  if(DB.custom.length) h+=`<div class="h2">Moje sety</div>`+DB.custom.map(setCard).join("");
+  h+=`<div class="h2">Sety z filmów</div>`+PRESETS.filter(s=>s.src).map(setCard).join("");
+  h+=`<div class="h2">Zestawy na partie ciała</div>`+PRESETS.filter(s=>!s.src).map(setCard).join("");
+  h+=`<div class="h2">Filmy źródłowe</div>`+Object.entries(VIDEOS).map(([id,v])=>`<div class="card row"><div class="grow"><div class="nm">${esc(v.t)}</div><div class="sub">${esc(v.ch)}</div></div><button class="play" data-act="video" data-vid="${id}" aria-label="Film">▶</button></div>`).join("");
+  h+=`<div class="empty">Biblioteka: ${EXERCISES.length-1} ćwiczeń · ${PRESETS.length} setów wbudowanych</div>`;
+  $("home").innerHTML=h;
+}
+
+/* =====================================================================
+   SZCZEGÓŁY SETU
+   ===================================================================== */
+function exRow(it,i,field,extra,setSrc){
+  const ex=EXMAP[it.id]; if(!ex) return "";
+  const showVid=ex.src&&ex.src!==setSrc;
+  const ctrl=ex.rest?"":(it.work!=null?stepper(field,it.work,{unit:"s",step:5,min:10,max:60,idx:i}):stepper(field,it.reps,{step:1,min:1,max:100,idx:i}));
+  return `<div class="exrow"><div class="row"><div class="num">${i+1}</div><div class="grow"><div class="nm">${esc(ex.name)}${it.side?` <span class="side">${it.side==="L"?"lewa":"prawa"}</span>`:""}</div><div class="ds">${esc(itemLabel(it))}</div></div>
+    ${showVid?`<button class="play" data-act="video" data-vid="${ex.src}" aria-label="Film">▶</button>`:""}</div>
+    <div class="ds" style="margin-top:6px">${esc(ex.desc)}</div>
+    ${(ctrl||extra)?`<div class="row ctl" style="justify-content:flex-end;margin-top:8px"><div class="grow ds">${(ex.rest||extra)?"":(it.work!=null?"sekundy pracy":"powtórzeń na minutę")}</div>${ctrl}${extra||""}</div>`:""}</div>`;
+}
+function renderDetail(){
+  const s=getSet(view.setId); if(!s){ goHome(); return; }
+  const e=effective(s), total=s.items.length*e.rounds, v=planVolume(e.items,e.rounds,e.kg);
+  $("d-title").textContent=s.name;
+  let h=`<div class="card">`;
+  if(s.src){ const vd=VIDEOS[s.src]||{t:"Film",ch:""}; h+=`<div class="row"><div class="grow"><div class="sub">Źródło: ${esc(vd.ch)}</div><div class="nm">${esc(vd.t)}</div></div><button class="play" data-act="video" data-vid="${s.src}" aria-label="Film">▶</button></div>`; }
+  else h+=`<div class="nm">${s.custom?"Mój set":"Zestaw z biblioteki ćwiczeń"}</div>`;
+  if(s.focus) h+=`<div class="sub">${esc(s.focus)}</div>`;
+  h+=`<div class="chips">${setTags(s).map(t=>`<span class="chip">${t}</span>`).join("")}</div></div>`;
+  h+=`<div class="card"><div class="row"><div class="grow"><div class="nm">Rundy</div><div class="sub">${exWord(s.items.length)} × ${e.rounds} = <b>${total} min</b></div></div>${stepper("d-rounds",e.rounds,{step:1,min:1,max:12})}</div>
+    <div class="row" style="margin-top:12px"><div class="grow"><div class="nm">Kettlebell</div><div class="sub">plan: ${nf(v.reps)} powt. · ok. ${nf(v.vol)} kg</div></div>${stepper("d-kg",e.kg,{unit:"kg",step:2,min:0,max:60})}</div></div>`;
+  h+=`<div class="h2">Ćwiczenia – jedno na minutę</div><div class="card">`+e.items.map((it,i)=>exRow(it,i,"d-item",null,s.src||null)).join("")+`</div>`;
+  if(!s.custom&&DB.prefs[s.id]) h+=`<button class="btn secondary w100" data-act="d-reset">Przywróć domyślne</button>`;
+  if(s.custom) h+=`<button class="btn danger w100" style="margin-top:10px" data-act="d-delete">Usuń set</button>`;
+  const sc=$("detail").scrollTop; $("detail").innerHTML=h; $("detail").scrollTop=sc;
+  $("d-bar").className="bar"+(s.custom?" two":"");
+  $("d-bar").innerHTML=`<button class="btn" data-act="d-start">Start</button>`+(s.custom?`<button class="btn secondary" data-act="d-edit">Edytuj</button>`:"");
+}
+function editSet(id,patch){ const s=getSet(id); if(!s) return; if(s.custom) Object.assign(s,patch); else Object.assign(DB.prefs[id]=DB.prefs[id]||{},patch); save(); }
+function editSetItem(id,idx,val){ const s=getSet(id); if(!s) return;
+  if(s.custom){ const it=s.items[idx]; if(it.work!=null) it.work=val; else { it.reps=val; it.range=null; } }
+  else { const p=DB.prefs[id]=DB.prefs[id]||{}; p.reps=p.reps||{}; p.reps[idx]=val; }
+  save(); }
+
+/* =====================================================================
+   KREATOR
+   ===================================================================== */
+let C=null;
+function initCreator(editId){
+  const s=editId?getSet(editId):null;
+  C=s?{editId,name:s.name,rounds:s.rounds,kg:s.kg??DB.kg,items:s.items.map(it=>Object.assign({},it)),filter:"all"}
+     :{editId:null,name:"",rounds:4,kg:DB.kg,items:[],filter:"all"};
+}
+function renderCreator(){
+  $("c-title").textContent=C.editId?"Edytuj set":"Własny trening";
+  $("creator").innerHTML=`<input class="big-input" id="c-name" placeholder="Nazwa setu (opcjonalnie)" maxlength="40" value="${esc(C.name)}" autocomplete="off">
+    <div class="card" style="margin-top:10px"><div class="row"><div class="grow"><div class="nm">Rundy</div><div class="sub" id="c-meta"></div></div>${stepper("c-rounds",C.rounds,{step:1,min:1,max:12})}</div>
+      <div class="row" style="margin-top:12px"><div class="grow"><div class="nm">Kettlebell</div><div class="sub" id="c-vol"></div></div>${stepper("c-kg",C.kg,{unit:"kg",step:2,min:0,max:60})}</div></div>
+    <div class="h2">Twój EMOM</div><div class="card" id="c-sel"></div>
+    <div class="h2">Biblioteka ćwiczeń – dotknij, aby dodać</div><div class="filters" id="c-filters"></div><div class="card" id="c-lib"></div>`;
+  $("c-name").addEventListener("input",e=>{ C.name=e.target.value; });
+  renderCreatorParts();
+}
+function renderCreatorParts(){
+  const n=C.items.length, v=planVolume(C.items,C.rounds,C.kg);
+  $("c-meta").innerHTML=n?`${exWord(n)} × ${C.rounds} = <b>${n*C.rounds} min</b>`:"dodaj ćwiczenia z biblioteki";
+  $("c-vol").textContent=n?`plan: ${nf(v.reps)} powt. · ok. ${nf(v.vol)} kg`:"do statystyk przerzuconych kg";
+  $("c-sel").innerHTML=n?C.items.map((it,i)=>exRow(it,i,"c-item",
+      `<button class="mini" data-act="c-move" data-idx="${i}" data-d="-1" aria-label="W górę" ${i===0?"disabled":""}>↑</button><button class="mini" data-act="c-move" data-idx="${i}" data-d="1" aria-label="W dół" ${i===n-1?"disabled":""}>↓</button><button class="mini del" data-act="c-remove" data-idx="${i}" aria-label="Usuń">✕</button>`)).join("")
+    :`<div class="empty">Jeszcze pusto. Wybierz ćwiczenia poniżej – każde to jedna minuta EMOM.</div>`;
+  $("c-filters").innerHTML=[["all","Wszystkie"],...TAGS.map(t=>[t,t])].map(([k,l])=>`<button class="chip${C.filter===k?" on":""}" data-act="c-filter" data-tag="${k}">${l}</button>`).join("");
+  const inSet=id=>C.items.some(it=>it.id===id);
+  const list=EXERCISES.filter(ex=>ex.rest||C.filter==="all"||ex.tags.includes(C.filter));
+  $("c-lib").innerHTML=list.map(ex=>`<div class="exrow"><div class="row"><div class="grow"><div class="nm">${esc(ex.name)}</div>
+      <div class="ds">${ex.rest?"cała minuta":(ex.work!=null?`${ex.work} s`:`${ex.range||ex.reps} powt.`)}${ex.sided?" · 2 minuty (L/P)":""}${ex.bw?" · bez kettla":""} · ${ex.tags.join(", ")}</div>
+      <div class="ds">${esc(ex.desc)}</div></div>
+      ${ex.src?`<button class="play" data-act="video" data-vid="${ex.src}" aria-label="Film">▶</button>`:""}
+      <button class="add${inSet(ex.id)?" on":""}" data-act="c-toggle" data-id="${ex.id}" aria-label="${inSet(ex.id)?"Usuń z setu":"Dodaj do setu"}">${inSet(ex.id)?"✓":"＋"}</button></div></div>`).join("");
+  $("c-start").disabled=!n; $("c-save").disabled=!n;
+}
+function creatorSet(){ return { id:C.editId||("c"+Date.now()), name:(C.name||"").trim()||"Własny trening", rounds:C.rounds, kg:C.kg, custom:true, src:null, focus:null,
+  items:C.items.map(it=>Object.assign({},it)) }; }
+function saveCreator(){
+  const s=creatorSet(); const i=DB.custom.findIndex(x=>x.id===s.id);
+  if(i>=0){ s.created=DB.custom[i].created; DB.custom[i]=s; } else { s.created=new Date().toISOString(); DB.custom.unshift(s); }
+  save(); return s;
+}
+
+/* =====================================================================
+   DZIENNIK
+   ===================================================================== */
+const LOG={month:new Date(),sel:null,open:null};
+function agg(list){ return list.reduce((a,e)=>({n:a.n+1,sec:a.sec+(e.seconds||0),vol:a.vol+(e.volume||0),reps:a.reps+(e.reps||0)}),{n:0,sec:0,vol:0,reps:0}); }
+function statBox(a){ return `<div class="stat"><div><b>${a.n}</b><span>${plural(a.n,"trening","treningi","treningów")}</span></div><div><b>${Math.round(a.sec/60)}</b><span>minut</span></div><div><b>${nf(a.vol)}</b><span>kg przerzucone</span></div></div>`; }
+function renderLog(){
+  const y=LOG.month.getFullYear(), m=LOG.month.getMonth(), today=dayKey(new Date());
+  const byDay={}; DB.log.forEach(e=>{ const k=dayKey(new Date(e.date)); (byDay[k]=byDay[k]||[]).push(e); });
+  const monthList=DB.log.filter(e=>{ const d=new Date(e.date); return d.getFullYear()===y&&d.getMonth()===m; });
+  let h=`<div class="card"><div class="sub" style="margin:0 0 8px">Łącznie</div>${statBox(agg(DB.log))}</div>`;
+  const first=new Date(y,m,1), start=(first.getDay()+6)%7, days=new Date(y,m+1,0).getDate();
+  h+=`<div class="card"><div class="calhead"><button class="mini" data-act="log-month" data-d="-1" aria-label="Poprzedni miesiąc">‹</button><b>${first.toLocaleDateString("pl-PL",{month:"long",year:"numeric"})}</b><button class="mini" data-act="log-month" data-d="1" aria-label="Następny miesiąc">›</button></div>
+    <div class="cal">${["Pn","Wt","Śr","Cz","Pt","So","Nd"].map(w=>`<div class="wd">${w}</div>`).join("")}`;
+  for(let i=0;i<start;i++) h+=`<div class="d off"></div>`;
+  for(let d=1;d<=days;d++){ const k=`${y}-${m}-${d}`; const has=!!byDay[k];
+    h+=`<button class="d${has?" has":""}${k===today?" today":""}${LOG.sel===k?" sel":""}" data-act="log-day" data-key="${k}" ${has?"":"disabled"}>${d}</button>`; }
+  h+=`</div><div class="sub" style="margin-top:10px">${first.toLocaleDateString("pl-PL",{month:"long"})}: ${monthList.length} ${plural(monthList.length,"trening","treningi","treningów")} · ${Math.round(agg(monthList).sec/60)} min · ${nf(agg(monthList).vol)} kg</div></div>`;
+  const list=LOG.sel?(byDay[LOG.sel]||[]):DB.log;
+  h+=`<div class="h2">${LOG.sel?"Treningi tego dnia":"Wszystkie treningi"}${LOG.sel?` <button class="chip" data-act="log-day" data-key="${LOG.sel}" style="margin-left:8px">pokaż wszystkie</button>`:""}</div>`;
+  if(!list.length) h+=`<div class="empty">Jeszcze nic tu nie ma. Po skończonym treningu zapisz go w dzienniku.</div>`;
+  list.forEach(e=>{ const d=new Date(e.date), open=LOG.open===e.id;
+    h+=`<div class="card tap" data-act="log-open" data-id="${e.id}"><div class="row"><div class="grow"><h3>${esc(e.name)}</h3>
+      <div class="sub">${d.toLocaleDateString("pl-PL",{weekday:"short",day:"numeric",month:"short",year:"numeric"})} · ${d.toLocaleTimeString("pl-PL",{hour:"2-digit",minute:"2-digit"})}</div>
+      <div class="sub">${fmt(e.seconds)} · ${e.kg} kg · ${nf(e.reps)} powt. · <b>${nf(e.volume)} kg</b>${e.complete?"":" · przerwany"}</div></div>
+      <span class="num" style="width:auto">${open?"▲":"▼"}</span></div>`;
+    if(open){ h+=`<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">`;
+      h+=`<div class="ds">${rdWord(e.rounds)} planowane · zaliczone ${e.roundsDone} · ${e.minutes} min pracy</div>`;
+      (e.items||[]).forEach(it=>{ if(it.rest) return; h+=`<div class="row" style="padding:6px 0"><div class="grow nm" style="font-size:15px">${esc(it.name)}${it.side?` <span class="side">${it.side==="L"?"lewa":"prawa"}</span>`:""}</div><div class="ds">${it.reps!=null?`${it.reps} powt./min${it.bw?" · bez kettla":""}`:(it.work!=null?`${it.work} s`:"")}</div></div>`; });
+      h+=`<button class="btn danger w100 small" style="margin-top:8px" data-act="log-delete" data-id="${e.id}">Usuń wpis</button></div>`; }
+    h+=`</div>`; });
+  const sc=$("log").scrollTop; $("log").innerHTML=h; $("log").scrollTop=sc;
+}
+
+/* =====================================================================
+   TIMER (logika z v1: rAF + performance.now, elapsed z delty)
+   ===================================================================== */
+const PREP=10;
+let plan=null, state="idle", elapsed=0, lastTick=0, raf=null, lastWhole=null, audio=null, wakeLock=null, startedAt=null;
+const N=()=>plan.items.length*plan.rounds;
+
+function beep(freq=880,ms=120,gain=.4){
+  try{
+    audio=audio||new (window.AudioContext||window.webkitAudioContext)();
+    if(audio.state==="suspended") audio.resume();
+    const o=audio.createOscillator(), g=audio.createGain(), t=audio.currentTime;
+    o.type="square"; o.frequency.value=freq;
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(gain,t+0.01);
+    g.gain.setValueAtTime(gain,t+ms/1000-0.03);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+ms/1000);
+    o.connect(g); g.connect(audio.destination);
+    o.start(t); o.stop(t+ms/1000+0.02);
+  }catch(e){}
+  if(navigator.vibrate) navigator.vibrate(ms);
+}
+const beepMinute=()=>{ beep(1046,400,.7); };
+const beepCount =()=>{ beep(880,200,.7); };
+const beepEnd   =()=>{ [0,250,500].forEach(t=>setTimeout(()=>beep(1318,300,.5),t)); };
+
+async function keepAwake(){ try{ if("wakeLock" in navigator) wakeLock=await navigator.wakeLock.request("screen"); }catch(e){} }
+function releaseWake(){ try{ wakeLock&&wakeLock.release(); }catch(e){} wakeLock=null; }
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&(state==="run"||state==="prep")) keepAwake(); });
+
+function nameHtml(it){ return `<b>${esc(it.name)}</b>${it.side?` (${it.side==="L"?"lewa":"prawa"}`+")":""} – ${esc(it.label)}`; }
+function currentItem(){
+  if(!plan) return null;
+  if(state==="done") return null;
+  if(state==="idle"||elapsed<0) return plan.items[0];
+  return plan.items[Math.min(N()-1,Math.floor(elapsed/60))%plan.items.length];
+}
+function currentVideo(){ const it=currentItem(); return {vid:(it&&it.src)||plan.src||null, ex:it&&it.src?it.name:null}; }
+function renderTimer(){
+  if(!plan) return;
+  const fill=$("fill"), clock=$("clock"), items=plan.items, len=items.length, n=N(), total=n*60;
+  $("rounds").textContent=plan.rounds;
+  $("t-video").hidden=!currentVideo().vid;
+  if(state==="idle"){
+    $("app").classList.remove("done"); fill.style.height="0%"; fill.style.background="var(--work)";
+    $("round").textContent="–"; $("total").textContent=fmt(total);
+    $("minute").textContent="Gotowy?"; $("name").textContent=plan.name;
+    $("reps").textContent=`${exWord(len)} × ${rdWord(plan.rounds)}`;
+    $("sec").textContent="60"; $("phase").textContent="Naciśnij Start – będzie 10 s na przygotowanie";
+    $("next").innerHTML=`Najpierw: ${nameHtml(items[0])}`;
+    $("main").textContent="Start"; clock.classList.remove("warn"); return;
+  }
+  if(state==="done"){
+    $("app").classList.add("done");
+    $("minute").textContent="Koniec"; $("name").textContent="Zrobione";
+    $("reps").textContent=`${n} ${plural(n,"minuta","minuty","minut")} · ${rdWord(plan.rounds)}`;
+    $("sec").textContent="0"; $("phase").textContent="";
+    $("next").textContent="Rozciągnij się.";
+    $("round").textContent=plan.rounds; $("total").textContent="0:00";
+    fill.style.height="100%"; fill.style.background="var(--done)";
+    $("main").textContent="Start"; return;
+  }
+  if(elapsed<0){ // przygotowanie
+    const left=-elapsed;
+    $("minute").textContent="Przygotuj się";
+    $("name").textContent=items[0].name+(items[0].side?(items[0].side==="L"?" · lewa":" · prawa"):""); $("reps").textContent=items[0].label;
+    $("sec").textContent=Math.ceil(left);
+    $("phase").textContent="Start za chwilę";
+    $("next").innerHTML=n>1?`Potem: ${nameHtml(items[1%len])}`:"Jedna minuta.";
+    $("round").textContent="1"; $("total").textContent=fmt(total);
+    fill.style.height=`${(1-left/PREP)*100}%`; fill.style.background="var(--rest)";
+    clock.classList.toggle("warn",left<=3); return;
+  }
+  const e=Math.floor(elapsed);
+  const idx=Math.floor(e/60), inMin=elapsed-idx*60, left=60-inMin;
+  const it=items[idx%len], nxt=items[(idx+1)%len];
+  $("round").textContent=Math.floor(idx/len)+1;
+  $("total").textContent=fmt(Math.max(0,total-e));
+  $("minute").textContent=`Minuta ${idx+1} / ${n}`;
+  $("name").textContent=it.name+(it.side?(it.side==="L"?" · lewa":" · prawa"):""); $("reps").textContent=it.label;
+  $("sec").textContent=Math.ceil(left);
+  const resting=it.rest||(it.work!=null&&inMin>=it.work);
+  $("phase").textContent=it.rest?"Odpocznij – za chwilę dalej"
+    :(resting?"Przerwa – zostań na nogach":(it.work!=null?`Ćwicz jeszcze ${Math.ceil(it.work-inMin)} s`:"Zrób powtórzenia, reszta to przerwa"));
+  $("next").innerHTML=idx+1<n?`Następnie: ${nameHtml(nxt)}`:"Ostatnia minuta.";
+  fill.style.height=`${(inMin/60)*100}%`;
+  fill.style.background=resting?"var(--rest)":"var(--work)";
+  clock.classList.toggle("warn",left<=10);
+}
+function tick(now){
+  if(state!=="run"&&state!=="prep") return;
+  elapsed+=(now-lastTick)/1000; lastTick=now;
+  const whole=Math.floor(elapsed);
+  if(whole!==lastWhole){
+    lastWhole=whole;
+    if(whole>=0){
+      const inMin=whole%60, idx=Math.floor(whole/60);
+      if(whole>=N()*60){ state="done"; beepEnd(); renderTimer(); releaseWake(); setTimeout(()=>openSummary(true),900); return; }
+      if(inMin===0){ beepMinute(); state="run"; }
+      else if(inMin>=57) beepCount();
+      const it=plan.items[idx%plan.items.length];
+      if(!it.rest&&it.work!=null&&inMin===it.work) beep(440,250,.4);
+    }else if(elapsed>-3.5&&Math.ceil(-elapsed)<=3) beepCount();
+  }
+  renderTimer();
+  raf=requestAnimationFrame(tick);
+}
+function startRun(){
+  if(state==="idle"){ elapsed=-PREP; lastWhole=null; state="prep"; startedAt=new Date().toISOString(); beep(660,100,.3); }
+  else if(state==="paused"){ state=elapsed<0?"prep":"run"; }
+  else return;
+  keepAwake();
+  $("main").textContent="Pauza";
+  lastTick=performance.now(); raf=requestAnimationFrame(tick);
+}
+function pauseRun(){ state="paused"; cancelAnimationFrame(raf); $("main").textContent="Wznów"; $("phase").textContent="Pauza"; }
+function resetRun(){ cancelAnimationFrame(raf); state="idle"; elapsed=0; lastWhole=null; renderTimer(); }
+function startTimer(p){
+  plan=JSON.parse(JSON.stringify(p));
+  DB.last={plan:JSON.parse(JSON.stringify(plan)),at:new Date().toISOString()}; DB.kg=plan.kg; save();
+  cancelAnimationFrame(raf); state="idle"; elapsed=0; lastWhole=null;
+  show("timer"); renderTimer();
+}
+function leaveTimer(){ cancelAnimationFrame(raf); state="idle"; elapsed=0; releaseWake(); goHome(); }
+$("main").addEventListener("click",()=>{ if(state==="run"||state==="prep") pauseRun(); else if(state==="done") resetRun(); else startRun(); });
+$("reset").addEventListener("click",resetRun);
+
+/* ---- podsumowanie i zapis do dziennika ---- */
+let SUM=null;
+function openSummary(complete){
+  const n=N();
+  const mins=complete?n:Math.min(n,Math.max(0,Math.floor(elapsed/60)));
+  SUM={complete,mins,secs:complete?n*60:Math.max(0,Math.floor(elapsed)),kg:plan.kg,reps:plan.items.map(it=>it.reps)};
+  renderSummary();
+}
+function sumTotals(){ let reps=0,vol=0; for(let m=0;m<SUM.mins;m++){ const i=m%plan.items.length, it=plan.items[i], r=SUM.reps[i]; if(it.rest||r==null) continue; reps+=r; if(!it.bw) vol+=r*SUM.kg; } return {reps,vol}; }
+function renderSummary(){
+  const t=sumTotals(), rd=Math.round(SUM.mins/plan.items.length*10)/10;
+  const html=`<h2>${SUM.complete?"Zrobione! 💪":"Trening przerwany"}</h2>
+    <div class="sub">${esc(plan.name)} · ${fmt(SUM.secs)} · ${SUM.mins} z ${N()} minut · ${rd} z ${plan.rounds} rund</div>
+    <div class="row" style="margin-top:14px"><div class="grow nm">Kettlebell</div>${stepper("sum-kg",SUM.kg,{unit:"kg",step:2,min:0,max:60})}</div>
+    <div class="h2">Powtórzenia na minutę – popraw, jeśli było inaczej</div>
+    ${plan.items.map((it,i)=>it.rest?"":`<div class="exrow"><div class="row"><div class="grow"><div class="nm">${esc(it.name)}${it.side?` <span class="side">${it.side==="L"?"lewa":"prawa"}</span>`:""}</div><div class="ds">${esc(it.label)}${it.bw?" · bez kettla":""}</div></div>${it.reps==null?`<div class="ds">na czas</div>`:stepper("sum-reps",SUM.reps[i],{step:1,min:0,max:200,idx:i})}</div></div>`).join("")}
+    <div class="stat" style="margin-top:14px"><div><b>${nf(t.reps)}</b><span>powtórzeń</span></div><div><b>${nf(t.vol)}</b><span>kg przerzucone</span></div><div><b>${fmt(SUM.secs)}</b><span>czas</span></div></div>
+    <div class="stack"><button class="btn" data-act="sum-save">Zapisz w dzienniku</button><button class="btn secondary" data-act="sum-skip">Nie zapisuj</button></div>`;
+  const sc=$("sheet").scrollTop; openModal(html,true); $("sheet").scrollTop=sc;
+}
+function saveSummary(){
+  const t=sumTotals();
+  DB.log.unshift({ id:Date.now(), date:startedAt||new Date().toISOString(), setId:plan.setId, name:plan.name, rounds:plan.rounds,
+    roundsDone:Math.round(SUM.mins/plan.items.length*10)/10, minutes:SUM.mins, seconds:SUM.secs, kg:SUM.kg, complete:SUM.complete, reps:t.reps, volume:t.vol,
+    items:plan.items.map((it,i)=>({id:it.id,name:it.name,side:it.side,reps:SUM.reps[i],work:it.work,bw:it.bw,rest:it.rest})) });
+  DB.kg=SUM.kg; save(); closeModal(); leaveTimer(); toast("Zapisano w dzienniku");
+}
+function abortTimer(){
+  if(state==="idle"||state==="done"){ leaveTimer(); return; }
+  if(state!=="paused") pauseRun();
+  const mins=Math.min(N(),Math.max(0,Math.floor(elapsed/60)));
+  openModal(`<h2>Przerwać trening?</h2><div class="sub">${mins>0?`Zaliczone minuty: ${mins} z ${N()}.`:"Jeszcze nic nie zaliczone."}</div>
+    <div class="stack">${mins>0?`<button class="btn" data-act="abort-save">Zapisz częściowy</button>`:""}
+    <button class="btn danger" data-act="abort-drop">Odrzuć i wyjdź</button>
+    <button class="btn secondary" data-act="modal-close">Wróć do treningu</button></div>`);
+}
+
+/* =====================================================================
+   AKCJE (delegacja zdarzeń)
+   ===================================================================== */
+const ACT={
+  "go-home":()=>goHome(),
+  "go-creator":()=>goCreator(null),
+  "go-log":()=>goLog(),
+  "video":d=>openVideo(d.vid),
+  "modal-close":()=>{ videoOpen=null; closeModal(); },
+  "open-set":d=>goDetail(d.id),
+  "last-open":()=>{ const p=DB.last.plan; if(p.setId&&getSet(p.setId)) goDetail(p.setId); else startTimer(p); },
+  "last-start":()=>startTimer(DB.last.plan),
+  "step":(d,el)=>{ const inp=el.parentElement.querySelector("input"); inp.value=(parseInt(inp.value,10)||0)+(+d.d)*(+inp.dataset.step||1); FIELD[inp.dataset.field]&&FIELD[inp.dataset.field](inp); },
+  "d-start":()=>{ const s=getSet(view.setId); startTimer(buildPlan(s,effective(s))); },
+  "d-edit":()=>goCreator(view.setId),
+  "d-reset":()=>{ delete DB.prefs[view.setId]; save(); renderDetail(); toast("Przywrócono domyślne"); },
+  "d-delete":()=>openModal(`<h2>Usunąć ten set?</h2><div class="sub">Wpisy w dzienniku zostają.</div><div class="stack"><button class="btn danger" data-act="d-delete-yes">Usuń</button><button class="btn secondary" data-act="modal-close">Anuluj</button></div>`),
+  "d-delete-yes":()=>{ DB.custom=DB.custom.filter(s=>s.id!==view.setId); save(); closeModal(); goHome(); toast("Set usunięty"); },
+  "c-filter":d=>{ C.filter=d.tag; renderCreatorParts(); },
+  "c-toggle":d=>{ const ex=EXMAP[d.id]; if(C.items.some(it=>it.id===d.id)) C.items=C.items.filter(it=>it.id!==d.id);
+      else if(ex.sided){ C.items.push({id:ex.id,reps:ex.reps,range:ex.range||null,side:"L"},{id:ex.id,reps:ex.reps,range:ex.range||null,side:"R"}); }
+      else C.items.push({id:ex.id,reps:ex.reps==null?null:ex.reps,range:ex.range||null,work:ex.work==null?undefined:ex.work});
+      renderCreatorParts(); },
+  "c-remove":d=>{ C.items.splice(+d.idx,1); renderCreatorParts(); },
+  "c-move":d=>{ const i=+d.idx, j=i+(+d.d); if(j<0||j>=C.items.length) return; [C.items[i],C.items[j]]=[C.items[j],C.items[i]]; renderCreatorParts(); },
+  "c-save":()=>{ if(!C.items.length) return; saveCreator(); goHome(); toast("Set zapisany"); },
+  "c-start":()=>{ if(!C.items.length) return; const s=C.editId?saveCreator():creatorSet(); if(!C.editId){ s.id=null; } startTimer(buildPlan(s,{rounds:s.rounds,kg:s.kg,items:s.items})); },
+  "log-month":d=>{ LOG.month=new Date(LOG.month.getFullYear(),LOG.month.getMonth()+(+d.d),1); LOG.sel=null; renderLog(); },
+  "log-day":d=>{ LOG.sel=LOG.sel===d.key?null:d.key; renderLog(); },
+  "log-open":d=>{ LOG.open=LOG.open===+d.id?null:+d.id; renderLog(); },
+  "log-delete":d=>{ DB.log=DB.log.filter(e=>e.id!==+d.id); LOG.open=null; save(); renderLog(); toast("Wpis usunięty"); },
+  "t-abort":()=>abortTimer(),
+  "t-video":()=>{ const cv=currentVideo(); if(!cv.vid) return; if(state==="run"||state==="prep") pauseRun(); openVideo(cv.vid,null,cv.ex); },
+  "abort-save":()=>{ closeModal(); openSummary(false); },
+  "abort-drop":()=>{ closeModal(); leaveTimer(); },
+  "sum-save":()=>saveSummary(),
+  "sum-skip":()=>{ closeModal(); if(!SUM.complete) leaveTimer(); },
+};
+const FIELD={
+  "d-rounds":inp=>{ editSet(view.setId,{rounds:num(inp)}); renderDetail(); },
+  "d-kg":inp=>{ editSet(view.setId,{kg:num(inp)}); renderDetail(); },
+  "d-item":inp=>{ editSetItem(view.setId,+inp.dataset.idx,num(inp)); renderDetail(); },
+  "c-rounds":inp=>{ C.rounds=num(inp); renderCreatorParts(); },
+  "c-kg":inp=>{ C.kg=num(inp); renderCreatorParts(); },
+  "c-item":inp=>{ const it=C.items[+inp.dataset.idx]; const v=num(inp); if(it.work!=null) it.work=v; else { it.reps=v; it.range=null; } renderCreatorParts(); },
+  "sum-kg":inp=>{ SUM.kg=num(inp); renderSummary(); },
+  "sum-reps":inp=>{ SUM.reps[+inp.dataset.idx]=num(inp); renderSummary(); },
+};
+document.addEventListener("click",e=>{
+  const el=e.target.closest("[data-act]"); if(!el||el.disabled) return;
+  const fn=ACT[el.dataset.act]; if(fn){ e.preventDefault(); fn(el.dataset,el,e); }
+});
+document.addEventListener("change",e=>{ const el=e.target.closest("input[data-field]"); if(!el) return; const fn=FIELD[el.dataset.field]; fn&&fn(el); });
+document.addEventListener("keydown",e=>{ if(e.key==="Enter"&&e.target.matches("input[data-field]")) e.target.blur(); });
+
+renderHome();
+</script>
+</body>
+</html>

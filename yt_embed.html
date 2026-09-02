@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>EMOM – player YouTube</title>
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}iframe{position:absolute;inset:0;width:100%;height:100%;border:0}p{color:#aaa;font:15px system-ui,sans-serif;padding:16px}</style>
+</head>
+<body>
+<script>
+// Strona pośrednia dla emom_timer.html otwartego z dysku (file://). YouTube wymaga nagłówka Referer,
+// którego lokalny plik nie wysyła („Błąd konfiguracji odtwarzacza”, kod 153). Wgraj ten plik na dowolny
+// hosting https (np. GitHub Pages) i wpisz jego pełny adres w stałej YT_PROXY w emom_timer.html.
+const v=new URLSearchParams(location.search).get("v")||"";
+if(/^[A-Za-z0-9_-]{6,20}$/.test(v)){
+  const f=document.createElement("iframe");
+  f.src="https://www.youtube-nocookie.com/embed/"+v+"?autoplay=1&playsinline=1&rel=0";
+  f.allow="autoplay; encrypted-media; picture-in-picture; fullscreen"; f.allowFullscreen=true; f.title="YouTube";
+  document.body.appendChild(f);
+}else{ document.body.innerHTML="<p>Brak id filmu (parametr ?v=).</p>"; }
+</script>
+</body>
+</html>
