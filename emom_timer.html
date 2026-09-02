@@ -166,10 +166,7 @@
 <section class="screen" id="s-creator">
   <div class="top"><button class="back" data-act="go-home" aria-label="Wróć">‹</button><h1 id="c-title">Własny trening</h1></div>
   <div class="scroll" id="creator"></div>
-  <div class="bar two">
-    <button class="btn" data-act="c-start" id="c-start">Start</button>
-    <button class="btn secondary" data-act="c-save" id="c-save">Zapisz</button>
-  </div>
+  <div class="bar two" id="c-bar"></div>
 </section>
 
 <!-- ===== DZIENNIK ===== -->
@@ -184,7 +181,7 @@
   <main id="app">
     <header>
       <button class="back" data-act="t-abort" aria-label="Zakończ trening">‹</button>
-      <span>Runda <b id="round">–</b> / <span id="rounds">4</span></span>
+      <span id="roundlbl">Runda <b>–</b> / 4</span>
       <span class="grow"></span>
       <button class="back" id="t-video" data-act="t-video" aria-label="Film z ćwiczeniem">▶</button>
       <span>Łącznie <b id="total">16:00</b></span>
@@ -356,10 +353,26 @@ function effective(s){
 }
 function setTags(s){ const t=[]; s.items.forEach(it=>(EXMAP[it.id]||{tags:[]}).tags.forEach(x=>{ if(!t.includes(x)) t.push(x); })); return t; }
 function planVolume(items,rounds,kg){ let reps=0,vol=0; items.forEach(it=>{ const ex=EXMAP[it.id]; if(!ex||ex.rest||it.reps==null) return; const r=it.reps*rounds; reps+=r; if(!ex.bw) vol+=r*kg; }); return {reps,vol}; }
+function resolveItem(it){ const ex=EXMAP[it.id]; return { id:it.id, name:ex.name, side:it.side||null, reps:it.reps==null?null:it.reps,
+  work:it.work==null?null:it.work, rest:!!ex.rest, bw:!!ex.bw, label:itemLabel(it), src:ex.src||null }; }
 function buildPlan(s,e){
-  return { setId:s.id||null, name:s.name, rounds:e.rounds, kg:e.kg, src:s.src||null,
-    items:e.items.map(it=>{ const ex=EXMAP[it.id]; return { id:it.id, name:ex.name, side:it.side||null, reps:it.reps==null?null:it.reps,
-      work:it.work==null?null:it.work, rest:!!ex.rest, bw:!!ex.bw, label:itemLabel(it), src:ex.src||null }; }) };
+  const items=e.items.map(resolveItem);
+  return { setId:s.id||null, name:s.name, rounds:e.rounds, kg:e.kg, src:s.src||null, items, segs:[{items,rounds:e.rounds,label:null}] };
+}
+/* Trening = segmenty: [0] set bazowy, dalej dogrywki. cut = ile minut segmentu faktycznie zaliczono (po przerwaniu).
+   seqOf zamienia segmenty na płaską listę minut; slot identyfikuje ćwiczenie w segmencie (do edycji powtórzeń). */
+function seqOf(segs){ const seq=[]; (segs||[]).forEach((sg,si)=>{ const len=sg.items.length; if(!len) return; const tot=sg.cut!=null?sg.cut:len*sg.rounds;
+  for(let m=0;m<tot;m++){ seq.push(Object.assign({},sg.items[m%len],{seg:si,slot:`${si}:${m%len}`,round:Math.floor(m/len)+1,rounds:sg.rounds,segLabel:sg.label||null})); } }); return seq; }
+function entrySegs(e){ return e.segs||[{items:e.items||[],rounds:e.rounds||1,label:null}]; }
+function entrySeq(e){ return seqOf(entrySegs(e)).slice(0,e.minutes==null?undefined:e.minutes); }
+function makeEntry(p,repsOf,mins,secs,complete,dateIso){
+  const seq=seqOf(p.segs); let reps=0,vol=0;
+  for(let m=0;m<Math.min(mins,seq.length);m++){ const it=seq[m]; if(it.rest) continue; const r=repsOf(it.slot,it); if(r==null) continue; reps+=r; if(!it.bw) vol+=r*(p.kg||0); }
+  const base=p.segs[0], baseLen=base.items.length||1, baseTot=base.cut!=null?base.cut:baseLen*base.rounds, baseMin=Math.min(mins,baseTot);
+  const segs=p.segs.map((sg,si)=>({label:sg.label||null,rounds:sg.rounds,cut:sg.cut==null?null:sg.cut,
+    items:sg.items.map((it,i)=>({id:it.id,name:it.name,side:it.side||null,reps:it.rest?null:repsOf(`${si}:${i}`,it),work:it.work==null?null:it.work,bw:!!it.bw,rest:!!it.rest}))}));
+  return { id:Date.now(), date:dateIso, setId:p.setId||null, name:p.name, rounds:base.rounds, roundsDone:Math.round(baseMin/baseLen*10)/10,
+    minutes:mins, seconds:secs, kg:p.kg, complete, reps, volume:vol, segs, items:segs[0].items };
 }
 function stepper(field,value,o){
   o=o||{}; const idx=o.idx==null?"":` data-idx="${o.idx}"`;
@@ -409,7 +422,7 @@ const view={screen:"home",setId:null};
 function show(name){ document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("on",s.id==="s-"+name)); view.screen=name; window.scrollTo(0,0); }
 function goHome(){ renderHome(); show("home"); }
 function goDetail(id){ view.setId=id; renderDetail(); show("detail"); $("detail").scrollTop=0; }
-function goCreator(editId){ initCreator(editId); renderCreator(); show("creator"); $("creator").scrollTop=0; }
+function goCreator(editId,opts){ initCreator(editId,opts); renderCreator(); show("creator"); $("creator").scrollTop=0; }
 function goLog(){ LOG.month=new Date(); LOG.sel=null; LOG.open=null; renderLog(); show("log"); $("log").scrollTop=0; }
 
 /* =====================================================================
@@ -477,25 +490,29 @@ function editSetItem(id,idx,val){ const s=getSet(id); if(!s) return;
    KREATOR
    ===================================================================== */
 let C=null;
-function initCreator(editId){
-  const s=editId?getSet(editId):null;
+function initCreator(editId,opts){
+  opts=opts||{}; const s=editId?getSet(editId):null;
   C=s?{editId,name:s.name,rounds:s.rounds,kg:s.kg??DB.kg,items:s.items.map(it=>Object.assign({},it)),filter:"all"}
-     :{editId:null,name:"",rounds:4,kg:DB.kg,items:[],filter:"all"};
+     :{editId:null,name:"",rounds:opts.extra?1:4,kg:opts.extra?plan.kg:DB.kg,items:[],filter:"all"};
+  C.extra=!!opts.extra;
 }
 function renderCreator(){
-  $("c-title").textContent=C.editId?"Edytuj set":"Własny trening";
-  $("creator").innerHTML=`<input class="big-input" id="c-name" placeholder="Nazwa setu (opcjonalnie)" maxlength="40" value="${esc(C.name)}" autocomplete="off">
-    <div class="card" style="margin-top:10px"><div class="row"><div class="grow"><div class="nm">Rundy</div><div class="sub" id="c-meta"></div></div>${stepper("c-rounds",C.rounds,{step:1,min:1,max:12})}</div>
-      <div class="row" style="margin-top:12px"><div class="grow"><div class="nm">Kettlebell</div><div class="sub" id="c-vol"></div></div>${stepper("c-kg",C.kg,{unit:"kg",step:2,min:0,max:60})}</div></div>
-    <div class="h2">Twój EMOM</div><div class="card" id="c-sel"></div>
+  $("c-title").textContent=C.extra?"Dogrywka – dodaj ćwiczenia":(C.editId?"Edytuj set":"Własny trening");
+  $("creator").innerHTML=(C.extra?`<div class="sub" style="margin-bottom:10px">Wybrane ćwiczenia dołączą do bieżącego treningu jako dogrywka – zapiszą się razem z nim w dzienniku.</div>`
+      :`<input class="big-input" id="c-name" placeholder="Nazwa setu (opcjonalnie)" maxlength="40" value="${esc(C.name)}" autocomplete="off">`)+
+    `<div class="card" style="margin-top:10px"><div class="row"><div class="grow"><div class="nm">Rundy</div><div class="sub" id="c-meta"></div></div>${stepper("c-rounds",C.rounds,{step:1,min:1,max:12})}</div>`+
+    (C.extra?"":`<div class="row" style="margin-top:12px"><div class="grow"><div class="nm">Kettlebell</div><div class="sub" id="c-vol"></div></div>${stepper("c-kg",C.kg,{unit:"kg",step:2,min:0,max:60})}</div>`)+
+    `</div><div class="h2">${C.extra?"Dogrywka":"Twój EMOM"}</div><div class="card" id="c-sel"></div>
     <div class="h2">Biblioteka ćwiczeń – dotknij, aby dodać</div><div class="filters" id="c-filters"></div><div class="card" id="c-lib"></div>`;
-  $("c-name").addEventListener("input",e=>{ C.name=e.target.value; });
+  $("c-bar").innerHTML=C.extra?`<button class="btn" data-act="c-start" id="c-start">Start dogrywki</button><button class="btn secondary" data-act="c-cancel">Anuluj</button>`
+    :`<button class="btn" data-act="c-start" id="c-start">Start</button><button class="btn secondary" data-act="c-save" id="c-save">Zapisz</button>`;
+  if($("c-name")) $("c-name").addEventListener("input",e=>{ C.name=e.target.value; });
   renderCreatorParts();
 }
 function renderCreatorParts(){
   const n=C.items.length, v=planVolume(C.items,C.rounds,C.kg);
   $("c-meta").innerHTML=n?`${exWord(n)} × ${C.rounds} = <b>${n*C.rounds} min</b>`:"dodaj ćwiczenia z biblioteki";
-  $("c-vol").textContent=n?`plan: ${nf(v.reps)} powt. · ok. ${nf(v.vol)} kg`:"do statystyk przerzuconych kg";
+  if($("c-vol")) $("c-vol").textContent=n?`plan: ${nf(v.reps)} powt. · ok. ${nf(v.vol)} kg`:"do statystyk przerzuconych kg";
   $("c-sel").innerHTML=n?C.items.map((it,i)=>exRow(it,i,"c-item",
       `<button class="mini" data-act="c-move" data-idx="${i}" data-d="-1" aria-label="W górę" ${i===0?"disabled":""}>↑</button><button class="mini" data-act="c-move" data-idx="${i}" data-d="1" aria-label="W dół" ${i===n-1?"disabled":""}>↓</button><button class="mini del" data-act="c-remove" data-idx="${i}" aria-label="Usuń">✕</button>`)).join("")
     :`<div class="empty">Jeszcze pusto. Wybierz ćwiczenia poniżej – każde to jedna minuta EMOM.</div>`;
@@ -507,7 +524,7 @@ function renderCreatorParts(){
       <div class="ds">${esc(ex.desc)}</div></div>
       ${ex.src?`<button class="play" data-act="video" data-vid="${ex.src}" aria-label="Film">▶</button>`:""}
       <button class="add${inSet(ex.id)?" on":""}" data-act="c-toggle" data-id="${ex.id}" aria-label="${inSet(ex.id)?"Usuń z setu":"Dodaj do setu"}">${inSet(ex.id)?"✓":"＋"}</button></div></div>`).join("");
-  $("c-start").disabled=!n; $("c-save").disabled=!n;
+  $("c-start").disabled=!n; if($("c-save")) $("c-save").disabled=!n;
 }
 function creatorSet(){ return { id:C.editId||("c"+Date.now()), name:(C.name||"").trim()||"Własny trening", rounds:C.rounds, kg:C.kg, custom:true, src:null, focus:null,
   items:C.items.map(it=>Object.assign({},it)) }; }
@@ -544,8 +561,10 @@ function renderLog(){
       <div class="sub">${fmt(e.seconds)} · ${e.kg} kg · ${nf(e.reps)} powt. · <b>${nf(e.volume)} kg</b>${e.complete?"":" · przerwany"}</div></div>
       <span class="num" style="width:auto">${open?"▲":"▼"}</span></div>`;
     if(open){ h+=`<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">`;
-      h+=`<div class="ds">${rdWord(e.rounds)} planowane · zaliczone ${e.roundsDone} · ${e.minutes} min pracy</div>`;
-      (e.items||[]).forEach(it=>{ if(it.rest) return; h+=`<div class="row" style="padding:6px 0"><div class="grow nm" style="font-size:15px">${esc(it.name)}${it.side?` <span class="side">${it.side==="L"?"lewa":"prawa"}</span>`:""}</div><div class="ds">${it.reps!=null?`${it.reps} powt./min${it.bw?" · bez kettla":""}`:(it.work!=null?`${it.work} s`:"")}</div></div>`; });
+      const exMin=entrySeq(e).filter(it=>it.seg>0).length;
+      h+=`<div class="ds">${rdWord(e.rounds)} planowane · zaliczone ${e.roundsDone} · ${e.minutes} min pracy${exMin?` (w tym dogrywka ${exMin} min)`:""}</div>`;
+      entrySegs(e).forEach((sg,si)=>{ if(si>0) h+=`<div class="ds" style="margin-top:8px;color:var(--work);font-weight:700">${esc(sg.label||"Dogrywka")} · ${rdWord(sg.rounds)}</div>`;
+        sg.items.forEach(it=>{ if(it.rest) return; h+=`<div class="row" style="padding:6px 0"><div class="grow nm" style="font-size:15px">${esc(it.name)}${it.side?` <span class="side">${it.side==="L"?"lewa":"prawa"}</span>`:""}</div><div class="ds">${it.reps!=null?`${it.reps} powt./min${it.bw?" · bez kettla":""}`:(it.work!=null?`${it.work} s`:"")}</div></div>`; }); });
       h+=`<div class="row" style="margin-top:8px"><button class="btn secondary small grow" data-act="garmin" data-id="${e.id}">Wyślij do Garmin (FIT)</button><button class="btn danger small" data-act="log-delete" data-id="${e.id}">Usuń</button></div></div>`; }
     h+=`</div>`; });
   const sc=$("log").scrollTop; $("log").innerHTML=h; $("log").scrollTop=sc;
@@ -553,10 +572,14 @@ function renderLog(){
 
 /* =====================================================================
    TIMER (logika z v1: rAF + performance.now, elapsed z delty)
+   plan.seq = płaska lista minut (set bazowy + dogrywki). prepEnd = sekunda, od której zaczyna się praca:
+   0 przy starcie, a po kontynuacji początek dogrywki (10 s przygotowania liczy się „przed” tą sekundą).
    ===================================================================== */
 const PREP=10;
-let plan=null, state="idle", elapsed=0, lastTick=0, raf=null, lastWhole=null, audio=null, wakeLock=null, startedAt=null;
-const N=()=>plan.items.length*plan.rounds;
+let plan=null, planBase=null, state="idle", elapsed=0, prepEnd=0, lastTick=0, raf=null, lastWhole=null, audio=null, wakeLock=null, startedAt=null;
+const N=()=>plan.seq.length;
+const doneMinutes=()=>Math.min(N(),Math.floor(Math.max(elapsed,prepEnd)/60));
+const extraMinutes=seq=>seq.filter(it=>it.seg>0).length;
 
 function beep(freq=880,ms=120,gain=.4){
   try{
@@ -581,61 +604,67 @@ async function keepAwake(){ try{ if("wakeLock" in navigator) wakeLock=await navi
 function releaseWake(){ try{ wakeLock&&wakeLock.release(); }catch(e){} wakeLock=null; }
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&(state==="run"||state==="prep")) keepAwake(); });
 
-function nameHtml(it){ return `<b>${esc(it.name)}</b>${it.side?` (${it.side==="L"?"lewa":"prawa"}`+")":""} – ${esc(it.label)}`; }
+function nameHtml(it){ return `<b>${esc(it.name)}</b>${it.side?` (${it.side==="L"?"lewa":"prawa"})`:""} – ${esc(it.label)}`; }
+const sideName=it=>it.name+(it.side?(it.side==="L"?" · lewa":" · prawa"):"");
+function roundLabel(it){
+  if(!it) return `Runda <b>–</b> / ${plan.segs[0].rounds}`;
+  if(it.seg===0) return `Runda <b>${it.round}</b> / ${it.rounds}`;
+  return `<b>Dogrywka</b>${it.rounds>1?` ${it.round} / ${it.rounds}`:""}`;
+}
 function currentItem(){
-  if(!plan) return null;
-  if(state==="done") return null;
-  if(state==="idle"||elapsed<0) return plan.items[0];
-  return plan.items[Math.min(N()-1,Math.floor(elapsed/60))%plan.items.length];
+  if(!plan||state==="done") return null;
+  const seq=plan.seq; if(state==="idle") return seq[0];
+  const idx=elapsed<prepEnd?Math.round(prepEnd/60):Math.floor(elapsed/60);
+  return seq[Math.min(seq.length-1,idx)];
 }
 function currentVideo(){ const it=currentItem(); return {vid:(it&&it.src)||plan.src||null, ex:it&&it.src?it.name:null}; }
 function renderTimer(){
   if(!plan) return;
-  const fill=$("fill"), clock=$("clock"), items=plan.items, len=items.length, n=N(), total=n*60;
-  $("rounds").textContent=plan.rounds;
+  const fill=$("fill"), clock=$("clock"), seq=plan.seq, n=N(), total=n*60, base=plan.segs[0];
   $("t-video").hidden=!currentVideo().vid;
   if(state==="idle"){
     $("app").classList.remove("done"); fill.style.height="0%"; fill.style.background="var(--work)";
-    $("round").textContent="–"; $("total").textContent=fmt(total);
+    $("roundlbl").innerHTML=roundLabel(null); $("total").textContent=fmt(total);
     $("minute").textContent="Gotowy?"; $("name").textContent=plan.name;
-    $("reps").textContent=`${exWord(len)} × ${rdWord(plan.rounds)}`;
+    $("reps").textContent=`${exWord(base.items.length)} × ${rdWord(base.rounds)}`;
     $("sec").textContent="60"; $("phase").textContent="Naciśnij Start – będzie 10 s na przygotowanie";
-    $("next").innerHTML=`Najpierw: ${nameHtml(items[0])}`;
+    $("next").innerHTML=`Najpierw: ${nameHtml(seq[0])}`;
     $("main").textContent="Start"; clock.classList.remove("warn"); return;
   }
   if(state==="done"){
+    const ex=extraMinutes(seq);
     $("app").classList.add("done");
     $("minute").textContent="Koniec"; $("name").textContent="Zrobione";
-    $("reps").textContent=`${n} ${plural(n,"minuta","minuty","minut")} · ${rdWord(plan.rounds)}`;
+    $("reps").textContent=`${n} ${plural(n,"minuta","minuty","minut")} · ${rdWord(base.rounds)}`+(ex?` + dogrywka ${ex} min`:"");
     $("sec").textContent="0"; $("phase").textContent="";
     $("next").textContent="Rozciągnij się.";
-    $("round").textContent=plan.rounds; $("total").textContent="0:00";
+    $("roundlbl").innerHTML=roundLabel(seq[n-1]); $("total").textContent="0:00";
     fill.style.height="100%"; fill.style.background="var(--done)";
     $("main").textContent="Start"; return;
   }
-  if(elapsed<0){ // przygotowanie
-    const left=-elapsed;
-    $("minute").textContent="Przygotuj się";
-    $("name").textContent=items[0].name+(items[0].side?(items[0].side==="L"?" · lewa":" · prawa"):""); $("reps").textContent=items[0].label;
+  if(elapsed<prepEnd){ // przygotowanie (start albo dogrywka)
+    const left=prepEnd-elapsed, si=Math.min(n-1,Math.round(prepEnd/60)), first=seq[si], second=seq[si+1];
+    $("minute").textContent=prepEnd>0?(first.seg>0?"Dogrywka – przygotuj się":"Jeszcze runda – przygotuj się"):"Przygotuj się";
+    $("name").textContent=sideName(first); $("reps").textContent=first.label;
     $("sec").textContent=Math.ceil(left);
     $("phase").textContent="Start za chwilę";
-    $("next").innerHTML=n>1?`Potem: ${nameHtml(items[1%len])}`:"Jedna minuta.";
-    $("round").textContent="1"; $("total").textContent=fmt(total);
+    $("next").innerHTML=second?`Potem: ${nameHtml(second)}`:"Jedna minuta.";
+    $("roundlbl").innerHTML=roundLabel(first); $("total").textContent=fmt(total-prepEnd);
     fill.style.height=`${(1-left/PREP)*100}%`; fill.style.background="var(--rest)";
     clock.classList.toggle("warn",left<=3); return;
   }
   const e=Math.floor(elapsed);
-  const idx=Math.floor(e/60), inMin=elapsed-idx*60, left=60-inMin;
-  const it=items[idx%len], nxt=items[(idx+1)%len];
-  $("round").textContent=Math.floor(idx/len)+1;
+  const idx=Math.min(n-1,Math.floor(e/60)), inMin=elapsed-idx*60, left=60-inMin;
+  const it=seq[idx], nxt=seq[idx+1];
+  $("roundlbl").innerHTML=roundLabel(it);
   $("total").textContent=fmt(Math.max(0,total-e));
-  $("minute").textContent=`Minuta ${idx+1} / ${n}`;
-  $("name").textContent=it.name+(it.side?(it.side==="L"?" · lewa":" · prawa"):""); $("reps").textContent=it.label;
+  $("minute").textContent=`Minuta ${idx+1} / ${n}`+(it.seg>0?" · dogrywka":"");
+  $("name").textContent=sideName(it); $("reps").textContent=it.label;
   $("sec").textContent=Math.ceil(left);
   const resting=it.rest||(it.work!=null&&inMin>=it.work);
   $("phase").textContent=it.rest?"Odpocznij – za chwilę dalej"
     :(resting?"Przerwa – zostań na nogach":(it.work!=null?`Ćwicz jeszcze ${Math.ceil(it.work-inMin)} s`:"Zrób powtórzenia, reszta to przerwa"));
-  $("next").innerHTML=idx+1<n?`Następnie: ${nameHtml(nxt)}`:"Ostatnia minuta.";
+  $("next").innerHTML=nxt?`Następnie: ${nameHtml(nxt)}`:"Ostatnia minuta.";
   fill.style.height=`${(inMin/60)*100}%`;
   fill.style.background=resting?"var(--rest)":"var(--work)";
   clock.classList.toggle("warn",left<=10);
@@ -646,69 +675,93 @@ function tick(now){
   const whole=Math.floor(elapsed);
   if(whole!==lastWhole){
     lastWhole=whole;
-    if(whole>=0){
+    if(elapsed>=prepEnd){
       const inMin=whole%60, idx=Math.floor(whole/60);
       if(whole>=N()*60){ state="done"; beepEnd(); renderTimer(); releaseWake(); setTimeout(()=>openSummary(true),900); return; }
       if(inMin===0){ beepMinute(); state="run"; }
       else if(inMin>=57) beepCount();
-      const it=plan.items[idx%plan.items.length];
-      if(!it.rest&&it.work!=null&&inMin===it.work) beep(440,250,.4);
-    }else if(elapsed>-3.5&&Math.ceil(-elapsed)<=3) beepCount();
+      const it=plan.seq[idx];
+      if(it&&!it.rest&&it.work!=null&&inMin===it.work) beep(440,250,.4);
+    }else{ const left=prepEnd-elapsed; if(left<3.5&&Math.ceil(left)<=3) beepCount(); }
   }
   renderTimer();
   raf=requestAnimationFrame(tick);
 }
 function startRun(){
-  if(state==="idle"){ elapsed=-PREP; lastWhole=null; state="prep"; startedAt=new Date().toISOString(); beep(660,100,.3); }
-  else if(state==="paused"){ state=elapsed<0?"prep":"run"; }
+  if(state==="idle"){ elapsed=-PREP; prepEnd=0; lastWhole=null; state="prep"; startedAt=new Date().toISOString(); beep(660,100,.3); }
+  else if(state==="paused"){ state=elapsed<prepEnd?"prep":"run"; }
   else return;
   keepAwake();
   $("main").textContent="Pauza";
   lastTick=performance.now(); raf=requestAnimationFrame(tick);
 }
 function pauseRun(){ state="paused"; cancelAnimationFrame(raf); $("main").textContent="Wznów"; $("phase").textContent="Pauza"; }
-function resetRun(){ cancelAnimationFrame(raf); state="idle"; elapsed=0; lastWhole=null; renderTimer(); }
+function resetRun(){ cancelAnimationFrame(raf); plan=JSON.parse(planBase); state="idle"; elapsed=0; prepEnd=0; lastWhole=null; renderTimer(); }
 function startTimer(p){
   plan=JSON.parse(JSON.stringify(p));
+  if(!plan.segs) plan.segs=[{items:plan.items,rounds:plan.rounds,label:null}];
+  delete plan.seq; plan.repsEdit={};
   DB.last={plan:JSON.parse(JSON.stringify(plan)),at:new Date().toISOString()}; DB.kg=plan.kg; save();
-  cancelAnimationFrame(raf); state="idle"; elapsed=0; lastWhole=null;
+  plan.seq=seqOf(plan.segs); planBase=JSON.stringify(plan);
+  cancelAnimationFrame(raf); state="idle"; elapsed=0; prepEnd=0; lastWhole=null;
   show("timer"); renderTimer();
 }
-function leaveTimer(){ cancelAnimationFrame(raf); state="idle"; elapsed=0; releaseWake(); goHome(); }
+function leaveTimer(){ cancelAnimationFrame(raf); state="idle"; elapsed=0; prepEnd=0; releaseWake(); goHome(); }
+/* kontynuacja po podsumowaniu: obcięcie planu do zaliczonych minut, potem 10 s przygotowania i dalej */
+function truncatePlan(mins){
+  let acc=0;
+  plan.segs=plan.segs.filter((sg,si)=>{ const len=sg.items.length, tot=sg.cut!=null?sg.cut:len*sg.rounds; const keep=Math.max(0,Math.min(tot,mins-acc)); acc+=tot; sg.cut=keep; return si===0||keep>0; });
+}
+function continueTimer(startMin){
+  plan.seq=seqOf(plan.segs); prepEnd=startMin*60; elapsed=prepEnd-PREP; lastWhole=null; state="prep";
+  closeModal(); $("app").classList.remove("done"); show("timer"); keepAwake();
+  $("main").textContent="Pauza"; renderTimer(); beep(660,100,.3);
+  lastTick=performance.now(); raf=requestAnimationFrame(tick);
+}
+function startExtra(){
+  if(!C||!C.extra||!C.items.length) return;
+  const items=C.items.map(resolveItem);
+  if(!SUM.complete) truncatePlan(SUM.mins);
+  plan.segs.push({items,rounds:C.rounds,label:"Dogrywka"});
+  continueTimer(SUM.mins);
+}
 $("main").addEventListener("click",()=>{ if(state==="run"||state==="prep") pauseRun(); else if(state==="done") resetRun(); else startRun(); });
 $("reset").addEventListener("click",resetRun);
 
 /* ---- podsumowanie i zapis do dziennika ---- */
 let SUM=null;
 function openSummary(complete){
-  const n=N();
-  const mins=complete?n:Math.min(n,Math.max(0,Math.floor(elapsed/60)));
-  SUM={complete,mins,secs:complete?n*60:Math.max(0,Math.floor(elapsed)),kg:plan.kg,reps:plan.items.map(it=>it.reps)};
+  const n=N(), mins=complete?n:doneMinutes(), secs=complete?n*60:Math.floor(Math.max(elapsed,prepEnd));
+  const reps={}; plan.seq.forEach(it=>{ if(!(it.slot in reps)) reps[it.slot]=(plan.repsEdit&&plan.repsEdit[it.slot]!=null)?plan.repsEdit[it.slot]:it.reps; });
+  SUM={complete,mins,secs,kg:plan.kg,reps};
   renderSummary();
 }
-function sumTotals(){ let reps=0,vol=0; for(let m=0;m<SUM.mins;m++){ const i=m%plan.items.length, it=plan.items[i], r=SUM.reps[i]; if(it.rest||r==null) continue; reps+=r; if(!it.bw) vol+=r*SUM.kg; } return {reps,vol}; }
+function sumTotals(){ let reps=0,vol=0; for(let m=0;m<SUM.mins;m++){ const it=plan.seq[m]; if(!it||it.rest) continue; const r=SUM.reps[it.slot]; if(r==null) continue; reps+=r; if(!it.bw) vol+=r*SUM.kg; } return {reps,vol}; }
 function renderSummary(){
-  const t=sumTotals(), rd=Math.round(SUM.mins/plan.items.length*10)/10;
+  const t=sumTotals(), base=plan.segs[0], baseLen=base.items.length, baseTot=base.cut!=null?base.cut:baseLen*base.rounds;
+  const baseMin=Math.min(SUM.mins,baseTot), rd=Math.round(baseMin/baseLen*10)/10, ex=Math.max(0,SUM.mins-baseTot);
+  const rows=plan.segs.map((sg,si)=>(si>0?`<div class="h2" style="color:var(--work)">${esc(sg.label||"Dogrywka")} · ${rdWord(sg.rounds)}</div>`:"")+
+    sg.items.map((it,i)=>{ if(it.rest) return ""; const slot=`${si}:${i}`;
+      return `<div class="exrow"><div class="row"><div class="grow"><div class="nm">${esc(it.name)}${it.side?` <span class="side">${it.side==="L"?"lewa":"prawa"}</span>`:""}</div><div class="ds">${esc(it.label)}${it.bw?" · bez kettla":""}</div></div>${it.reps==null?`<div class="ds">na czas</div>`:stepper("sum-reps",SUM.reps[slot],{step:1,min:0,max:200,idx:slot})}</div></div>`; }).join("")).join("");
   const html=`<h2>${SUM.complete?"Zrobione! 💪":"Trening przerwany"}</h2>
-    <div class="sub">${esc(plan.name)} · ${fmt(SUM.secs)} · ${SUM.mins} z ${N()} minut · ${rd} z ${plan.rounds} rund</div>
+    <div class="sub">${esc(plan.name)} · ${fmt(SUM.secs)} · ${SUM.mins} z ${N()} minut · ${rd} z ${base.rounds} rund${ex?` + dogrywka ${ex} min`:""}</div>
     <div class="row" style="margin-top:14px"><div class="grow nm">Kettlebell</div>${stepper("sum-kg",SUM.kg,{unit:"kg",step:2,min:0,max:60})}</div>
-    <div class="h2">Powtórzenia na minutę – popraw, jeśli było inaczej</div>
-    ${plan.items.map((it,i)=>it.rest?"":`<div class="exrow"><div class="row"><div class="grow"><div class="nm">${esc(it.name)}${it.side?` <span class="side">${it.side==="L"?"lewa":"prawa"}</span>`:""}</div><div class="ds">${esc(it.label)}${it.bw?" · bez kettla":""}</div></div>${it.reps==null?`<div class="ds">na czas</div>`:stepper("sum-reps",SUM.reps[i],{step:1,min:0,max:200,idx:i})}</div></div>`).join("")}
+    <div class="h2">Powtórzenia na minutę – popraw, jeśli było inaczej</div>${rows}
     <div class="stat" style="margin-top:14px"><div><b>${nf(t.reps)}</b><span>powtórzeń</span></div><div><b>${nf(t.vol)}</b><span>kg przerzucone</span></div><div><b>${fmt(SUM.secs)}</b><span>czas</span></div></div>
+    <div class="h2">Chcesz zrobić więcej?</div>
+    <div class="row">${SUM.complete?`<button class="btn secondary small grow" data-act="sum-more-round">Jeszcze 1 runda</button>`:""}<button class="btn secondary small grow" data-act="sum-add-ex">${SUM.complete?"Dodaj ćwiczenia":"Dodaj ćwiczenia zamiast reszty"}</button></div>
     <div class="stack"><button class="btn" data-act="sum-save">Zapisz w dzienniku</button><button class="btn secondary" data-act="sum-save-garmin">Zapisz i wyślij do Garmin</button><button class="btn secondary" data-act="sum-skip">Nie zapisuj</button></div>`;
   const sc=$("sheet").scrollTop; openModal(html,true); $("sheet").scrollTop=sc;
 }
 function saveSummary(){
-  const t=sumTotals();
-  DB.log.unshift({ id:Date.now(), date:startedAt||new Date().toISOString(), setId:plan.setId, name:plan.name, rounds:plan.rounds,
-    roundsDone:Math.round(SUM.mins/plan.items.length*10)/10, minutes:SUM.mins, seconds:SUM.secs, kg:SUM.kg, complete:SUM.complete, reps:t.reps, volume:t.vol,
-    items:plan.items.map((it,i)=>({id:it.id,name:it.name,side:it.side,reps:SUM.reps[i],work:it.work,bw:it.bw,rest:it.rest})) });
+  DB.log.unshift(makeEntry(plan,slot=>SUM.reps[slot],SUM.mins,SUM.secs,SUM.complete,startedAt||new Date().toISOString()));
   DB.kg=SUM.kg; save(); closeModal(); leaveTimer(); toast("Zapisano w dzienniku");
 }
+function keepRepsEdits(){ plan.repsEdit=Object.assign({},SUM.reps); plan.kg=SUM.kg; }
 function abortTimer(){
   if(state==="idle"||state==="done"){ leaveTimer(); return; }
   if(state!=="paused") pauseRun();
-  const mins=Math.min(N(),Math.max(0,Math.floor(elapsed/60)));
+  const mins=doneMinutes();
   openModal(`<h2>Przerwać trening?</h2><div class="sub">${mins>0?`Zaliczone minuty: ${mins} z ${N()}.`:"Jeszcze nic nie zaliczone."}</div>
     <div class="stack">${mins>0?`<button class="btn" data-act="abort-save">Zapisz częściowy</button>`:""}
     <button class="btn danger" data-act="abort-drop">Odrzuć i wyjdź</button>
@@ -754,7 +807,7 @@ function buildFit(e){
   const start=Math.floor(new Date(e.date).getTime()/1000)+PREP-FIT_EPOCH;
   const total=Math.max(60,Math.floor(e.seconds||0)); const end=start+total;
   const tz=-new Date(e.date).getTimezoneOffset()*60;
-  const items=(e.items||[]), len=items.length||1, mins=Math.min(e.minutes||0,Math.floor(total/60));
+  const seq=seqOf(entrySegs(e)), mins=Math.min(e.minutes||0,seq.length,Math.floor(total/60));
   enc.def(0,0,[[0,"enum"],[1,"u16"],[2,"u16"],[3,"u32z"],[4,"u32"]]);      // file_id: type, manufacturer, product, serial, time_created
   enc.msg(0,[4,255,1,(e.id%4000000000)||1,start]);
   enc.def(1,49,[[0,"u16"]]); enc.msg(1,[100]);                                // file_creator: software_version
@@ -767,7 +820,7 @@ function buildFit(e){
   const set=(t0,dur,it)=>{ const active=!!it; const cat=active?(FIT_CAT[it.id]==null?65534:FIT_CAT[it.id]):null;
     enc.msg(4,[t0+dur,t0,dur*1000, active&&it.reps!=null?it.reps:null, active?(it.bw?0:(e.kg||0)*16):null, active?1:0, cat, active?1:null, mi++]); };
   enc.msg(3,[start]);
-  for(let m=0;m<mins;m++){ const it=items[m%len]||{rest:true}, t0=start+m*60;
+  for(let m=0;m<mins;m++){ const it=seq[m]||{rest:true}, t0=start+m*60;
     if(it.rest){ set(t0,60,null); }
     else if(it.work!=null&&it.work<60){ set(t0,it.work,it); set(t0+it.work,60-it.work,null); }
     else set(t0,60,it);
@@ -775,9 +828,9 @@ function buildFit(e){
   if(end>start+mins*60) enc.msg(3,[end]);
   enc.def(5,19,[[253,"u32"],[2,"u32"],[7,"u32"],[8,"u32"],[0,"enum"],[1,"enum"],[25,"enum"],[39,"enum"],[254,"u16"]]);
   // lap: timestamp, start_time, total_elapsed_time, total_timer_time, event(9 lap), event_type(1 stop), sport(10 training), sub_sport(20 strength), message_index
-  const rounds=Math.max(1,Math.ceil(mins/len)); let laps=0;
-  for(let r=0;r<rounds;r++){ const t0=start+r*len*60, t1=Math.min(end,start+(r+1)*len*60); if(t1<=t0) break;
-    enc.msg(5,[t1,t0,(t1-t0)*1000,(t1-t0)*1000,9,1,10,20,laps++]); }
+  let laps=0, lapStart=0;
+  for(let m=1;m<=mins;m++){ const cur=seq[m-1], nxt=seq[m]; const brk=(m===mins)||!nxt||nxt.seg!==cur.seg||nxt.round!==cur.round;
+    if(brk){ const t0=start+lapStart*60, t1=(m===mins)?end:start+m*60; if(t1>t0) enc.msg(5,[t1,t0,(t1-t0)*1000,(t1-t0)*1000,9,1,10,20,laps++]); lapStart=m; } }
   if(!laps){ enc.msg(5,[end,start,total*1000,total*1000,9,1,10,20,laps++]); }
   enc.msg(2,[end,0,4,0]);                                                    // event: stop_all
   enc.def(6,18,[[253,"u32"],[2,"u32"],[7,"u32"],[8,"u32"],[0,"enum"],[1,"enum"],[5,"enum"],[6,"enum"],[25,"u16"],[26,"u16"],[254,"u16"]]);
@@ -816,20 +869,16 @@ function openGarmin(id){
 
 /* ---- przykładowy ukończony trening (do testu dziennika i eksportu FIT) ---- */
 function addSampleLog(){
-  const s=getSet("p-biceps-abs"); const p=buildPlan(s,effective(s)); const len=p.items.length, n=len*p.rounds;
-  let reps=0,vol=0; for(let m=0;m<n;m++){ const it=p.items[m%len]; if(it.rest||it.reps==null) continue; reps+=it.reps; if(!it.bw) vol+=it.reps*p.kg; }
-  const start=new Date(Date.now()-90*60e3);
-  DB.log.unshift({ id:Date.now(), date:start.toISOString(), setId:p.setId, name:p.name+" (przykład)", rounds:p.rounds, roundsDone:p.rounds,
-    minutes:n, seconds:n*60, kg:p.kg, complete:true, reps, volume:vol,
-    items:p.items.map(it=>({id:it.id,name:it.name,side:it.side,reps:it.reps,work:it.work,bw:it.bw,rest:it.rest})) });
-  save();
+  const s=getSet("p-biceps-abs"); const p=buildPlan(s,effective(s)); const n=p.items.length*p.rounds;
+  const en=makeEntry(p,(slot,it)=>it.reps,n,n*60,true,new Date(Date.now()-90*60e3).toISOString()); en.name+=" (przykład)";
+  DB.log.unshift(en); save();
 }
 
 /* =====================================================================
    AKCJE (delegacja zdarzeń)
    ===================================================================== */
 const ACT={
-  "go-home":()=>goHome(),
+  "go-home":()=>{ if(view.screen==="creator"&&C&&C.extra){ ACT["c-cancel"](); return; } goHome(); },
   "go-creator":()=>goCreator(null),
   "go-log":()=>goLog(),
   "video":d=>openVideo(d.vid),
@@ -851,7 +900,8 @@ const ACT={
   "c-remove":d=>{ C.items.splice(+d.idx,1); renderCreatorParts(); },
   "c-move":d=>{ const i=+d.idx, j=i+(+d.d); if(j<0||j>=C.items.length) return; [C.items[i],C.items[j]]=[C.items[j],C.items[i]]; renderCreatorParts(); },
   "c-save":()=>{ if(!C.items.length) return; saveCreator(); goHome(); toast("Set zapisany"); },
-  "c-start":()=>{ if(!C.items.length) return; const s=C.editId?saveCreator():creatorSet(); if(!C.editId){ s.id=null; } startTimer(buildPlan(s,{rounds:s.rounds,kg:s.kg,items:s.items})); },
+  "c-cancel":()=>{ show("timer"); renderSummary(); },
+  "c-start":()=>{ if(!C.items.length) return; if(C.extra){ startExtra(); return; } const s=C.editId?saveCreator():creatorSet(); if(!C.editId){ s.id=null; } startTimer(buildPlan(s,{rounds:s.rounds,kg:s.kg,items:s.items})); },
   "log-sample":()=>{ addSampleLog(); LOG.open=DB.log[0].id; renderLog(); toast("Dodano przykładowy trening"); },
   "log-month":d=>{ LOG.month=new Date(LOG.month.getFullYear(),LOG.month.getMonth()+(+d.d),1); LOG.sel=null; renderLog(); },
   "log-day":d=>{ LOG.sel=LOG.sel===d.key?null:d.key; renderLog(); },
@@ -861,6 +911,10 @@ const ACT={
   "t-video":()=>{ const cv=currentVideo(); if(!cv.vid) return; if(state==="run"||state==="prep") pauseRun(); openVideo(cv.vid,null,cv.ex); },
   "abort-save":()=>{ closeModal(); openSummary(false); },
   "abort-drop":()=>{ closeModal(); leaveTimer(); },
+  "sum-more-round":()=>{ keepRepsEdits(); const base=plan.segs[0];
+      if(plan.segs.length===1&&base.cut==null) base.rounds+=1; else plan.segs.push({items:base.items.map(it=>Object.assign({},it)),rounds:1,label:"Jeszcze runda"});
+      continueTimer(SUM.mins); },
+  "sum-add-ex":()=>{ keepRepsEdits(); closeModal(); goCreator(null,{extra:true}); },
   "sum-save":()=>saveSummary(),
   "sum-save-garmin":()=>{ saveSummary(); openGarmin(DB.log[0].id); },
   "garmin":d=>openGarmin(+d.id),
@@ -875,7 +929,7 @@ const FIELD={
   "c-kg":inp=>{ C.kg=num(inp); renderCreatorParts(); },
   "c-item":inp=>{ const it=C.items[+inp.dataset.idx]; const v=num(inp); if(it.work!=null) it.work=v; else { it.reps=v; it.range=null; } renderCreatorParts(); },
   "sum-kg":inp=>{ SUM.kg=num(inp); renderSummary(); },
-  "sum-reps":inp=>{ SUM.reps[+inp.dataset.idx]=num(inp); renderSummary(); },
+  "sum-reps":inp=>{ SUM.reps[inp.dataset.idx]=num(inp); renderSummary(); },
 };
 document.addEventListener("click",e=>{
   const el=e.target.closest("[data-act]"); if(!el||el.disabled) return;
