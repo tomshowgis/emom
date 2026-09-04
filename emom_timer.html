@@ -140,6 +140,13 @@
   .controls{display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-top:18px}
   .hint{margin-top:10px;font-size:13px;color:var(--muted);text-align:center}
   .done .name{color:var(--done)}
+  .tiles{display:grid;gap:8px;margin-top:12px}
+  .tiles[hidden]{display:none}
+  .tile{min-height:52px;border-radius:12px;background:var(--line);font-weight:800;font-size:19px;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+  .tile.on{background:var(--work);color:#1a1a1a}
+  .kgchip{display:inline-flex;align-items:center;font-size:13px;padding:4px 10px;min-height:32px;background:var(--line);color:var(--ink);font-weight:700;border-radius:999px;vertical-align:middle}
+  #t-sound{display:inline-flex;margin-top:8px;min-height:44px;font-size:15px}
+  #t-sound[hidden]{display:none}
   @media (prefers-reduced-motion:reduce){#fill{transition:none} button:active{transform:none}}
 </style>
 </head>
@@ -192,11 +199,13 @@
     <div class="clock" id="clock"><span id="sec">60</span></div>
     <div class="phase" id="phase"></div>
     <div class="next" id="next"></div>
+    <div class="tiles" id="tiles" hidden></div>
     <div class="controls">
       <button id="main" class="btn">Start</button>
       <button id="reset" class="btn secondary">Od nowa</button>
     </div>
-    <div class="hint">Dźwięk i wibracja co minutę, sygnał 3-2-1 przed zmianą. Ekran nie gaśnie.</div>
+    <div class="hint">Sygnał co minutę, podwójny „pik-pik” 10 s przed końcem i 3-2-1. Ekran nie gaśnie.<br>
+      <button class="btn secondary small" id="t-sound" data-act="t-sound">Test dźwięku</button></div>
   </main>
 </section>
 
@@ -322,7 +331,7 @@ const PRESETS = [
    STAN (localStorage)
    ===================================================================== */
 const KEY="emom_v2";
-const DEFAULT_DB=()=>({v:2,custom:[],prefs:{},log:[],last:null,kg:16});
+const DEFAULT_DB=()=>({v:2,custom:[],prefs:{},log:[],last:null,kg:16,bells:[8,10,20]});
 let DB=(()=>{ try{ const d=JSON.parse(localStorage.getItem(KEY)); if(d&&d.v===2) return Object.assign(DEFAULT_DB(),d); }catch(e){} return DEFAULT_DB(); })();
 function save(){ try{ localStorage.setItem(KEY,JSON.stringify(DB)); }catch(e){} }
 
@@ -375,12 +384,12 @@ function seqOf(segs){ const seq=[]; (segs||[]).forEach((sg,si)=>{ const len=sg.i
   for(let m=0;m<tot;m++){ seq.push(Object.assign({},sg.items[m%len],{seg:si,slot:`${si}:${m%len}`,round:Math.floor(m/len)+1,rounds:sg.rounds,segLabel:sg.label||null})); } }); return seq; }
 function entrySegs(e){ return e.segs||[{items:e.items||[],rounds:e.rounds||1,label:null}]; }
 function entrySeq(e){ return seqOf(entrySegs(e)).slice(0,e.minutes==null?undefined:e.minutes); }
-function makeEntry(p,repsOf,mins,secs,complete,dateIso){
-  const seq=seqOf(p.segs); let reps=0,vol=0;
-  for(let m=0;m<Math.min(mins,seq.length);m++){ const it=seq[m]; if(it.rest) continue; const r=repsOf(it.slot,it); if(r==null) continue; reps+=r; if(!it.bw) vol+=r*(p.kg||0); }
+function makeEntry(p,repsOf,mins,secs,complete,dateIso,kgOf){
+  kgOf=kgOf||(()=>p.kg); const seq=seqOf(p.segs); let reps=0,vol=0;
+  for(let m=0;m<Math.min(mins,seq.length);m++){ const it=seq[m]; if(it.rest) continue; const r=repsOf(it.slot,it); if(r==null) continue; reps+=r; if(!it.bw) vol+=r*(kgOf(it.slot)||0); }
   const base=p.segs[0], baseLen=base.items.length||1, baseTot=base.cut!=null?base.cut:baseLen*base.rounds, baseMin=Math.min(mins,baseTot);
   const segs=p.segs.map((sg,si)=>({label:sg.label||null,rounds:sg.rounds,cut:sg.cut==null?null:sg.cut,
-    items:sg.items.map((it,i)=>({id:it.id,name:it.name,side:it.side||null,reps:it.rest?null:repsOf(`${si}:${i}`,it),work:it.work==null?null:it.work,bw:!!it.bw,rest:!!it.rest}))}));
+    items:sg.items.map((it,i)=>({id:it.id,name:it.name,side:it.side||null,reps:it.rest?null:repsOf(`${si}:${i}`,it),work:it.work==null?null:it.work,bw:!!it.bw,rest:!!it.rest,kg:(it.rest||it.bw)?null:kgOf(`${si}:${i}`)}))}));
   return { id:Date.now(), date:dateIso, setId:p.setId||null, name:p.name, rounds:base.rounds, roundsDone:Math.round(baseMin/baseLen*10)/10,
     minutes:mins, seconds:secs, kg:p.kg, complete, reps, volume:vol, segs, items:segs[0].items };
 }
@@ -482,7 +491,8 @@ function renderDetail(){
   if(s.focus) h+=`<div class="sub">${esc(s.focus)}</div>`;
   h+=`<div class="chips">${setTags(s).map(t=>`<span class="chip">${t}</span>`).join("")}</div></div>`;
   h+=`<div class="card"><div class="row"><div class="grow"><div class="nm">Rundy</div><div class="sub">${exWord(s.items.length)} × ${e.rounds} = <b>${total} min</b></div></div>${stepper("d-rounds",e.rounds,{step:1,min:1,max:12})}</div>
-    <div class="row" style="margin-top:12px"><div class="grow"><div class="nm">Kettlebell</div><div class="sub">plan: ${nf(v.reps)} powt. · ok. ${nf(v.vol)} kg</div></div>${stepper("d-kg",e.kg,{unit:"kg",step:2,min:0,max:60})}</div></div>`;
+    <div class="row" style="margin-top:12px"><div class="grow"><div class="nm">Kettlebell</div><div class="sub">plan: ${nf(v.reps)} powt. · ok. ${nf(v.vol)} kg</div></div>${stepper("d-kg",e.kg,{unit:"kg",step:2,min:0,max:60})}</div>
+    <div class="sub" style="margin-top:10px">Kafle na timerze: <b>${(DB.bells||[]).join(" · ")} kg</b> <button class="kgchip" data-act="bells">zmień</button></div></div>`;
   h+=`<div class="h2">Ćwiczenia – jedno na minutę</div><div class="card">`+e.items.map((it,i)=>exRow(it,i,"d-item",null,s.src||null)).join("")+`</div>`;
   if(!s.custom&&DB.prefs[s.id]) h+=`<button class="btn secondary w100" data-act="d-reset">Przywróć domyślne</button>`;
   if(s.custom) h+=`<button class="btn danger w100" style="margin-top:10px" data-act="d-delete">Usuń set</button>`;
@@ -574,7 +584,7 @@ function renderLog(){
       const exMin=entrySeq(e).filter(it=>it.seg>0).length;
       h+=`<div class="ds">${rdWord(e.rounds)} planowane · zaliczone ${e.roundsDone} · ${e.minutes} min pracy${exMin?` (w tym dogrywka ${exMin} min)`:""}</div>`;
       entrySegs(e).forEach((sg,si)=>{ if(si>0) h+=`<div class="ds" style="margin-top:8px;color:var(--work);font-weight:700">${esc(sg.label||"Dogrywka")} · ${rdWord(sg.rounds)}</div>`;
-        sg.items.forEach(it=>{ if(it.rest) return; h+=`<div class="row" style="padding:6px 0"><div class="grow nm" style="font-size:15px">${esc(it.name)}${it.side?` <span class="side">${it.side==="L"?"lewa":"prawa"}</span>`:""}</div><div class="ds">${it.reps!=null?`${it.reps} powt./min${it.bw?" · bez kettla":""}`:(it.work!=null?`${it.work} s`:"")}</div></div>`; }); });
+        sg.items.forEach(it=>{ if(it.rest) return; h+=`<div class="row" style="padding:6px 0"><div class="grow nm" style="font-size:15px">${esc(it.name)}${it.side?` <span class="side">${it.side==="L"?"lewa":"prawa"}</span>`:""}</div><div class="ds">${it.reps!=null?`${it.reps} powt./min`:(it.work!=null?`${it.work} s`:"")}${it.bw?" · bez kettla":(it.kg!=null&&it.kg!==e.kg?` · ${it.kg} kg`:"")}</div></div>`; }); });
       h+=`<div class="row" style="margin-top:8px"><button class="btn secondary small grow" data-act="garmin" data-id="${e.id}">Wyślij do Garmin (FIT)</button><button class="btn danger small" data-act="log-delete" data-id="${e.id}">Usuń</button></div></div>`; }
     h+=`</div>`; });
   const sc=$("log").scrollTop; $("log").innerHTML=h; $("log").scrollTop=sc;
@@ -594,7 +604,7 @@ const extraMinutes=seq=>seq.filter(it=>it.seg>0).length;
 function beep(freq=880,ms=120,gain=.4){
   try{
     audio=audio||new (window.AudioContext||window.webkitAudioContext)();
-    if(audio.state==="suspended") audio.resume();
+    if(audio.state!=="running") audio.resume();
     const o=audio.createOscillator(), g=audio.createGain(), t=audio.currentTime;
     o.type="square"; o.frequency.value=freq;
     g.gain.setValueAtTime(0.0001,t);
@@ -607,6 +617,17 @@ function beep(freq=880,ms=120,gain=.4){
   if(navigator.vibrate) navigator.vibrate(ms);
 }
 const beepMinute=()=>{ beep(1046,400,.7); };
+const beepDouble=()=>{ beep(740,180,.6); setTimeout(()=>beep(740,180,.6),260); };
+/* iOS: przełącznik trybu cichego wycisza Web Audio, chyba że strona odtwarza element <audio>.
+   Cicha pętla WAV uruchomiona gestem (Start) przełącza sesję audio w tryb odtwarzania i sygnały słychać. */
+const SILENT_WAV="data:audio/wav;base64,UklGRsQPAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YaAPAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA";
+let silentEl=null;
+function unlockAudio(){
+  try{ if(!silentEl){ silentEl=new Audio(SILENT_WAV); silentEl.loop=true; silentEl.setAttribute("playsinline",""); silentEl.preload="auto"; }
+    const pr=silentEl.play(); if(pr&&pr.catch) pr.catch(()=>{}); }catch(e){}
+  try{ audio=audio||new (window.AudioContext||window.webkitAudioContext)(); if(audio.state!=="running") audio.resume(); }catch(e){}
+}
+function stopSilent(){ try{ silentEl&&silentEl.pause(); }catch(e){} }
 const beepCount =()=>{ beep(880,200,.7); };
 const beepEnd   =()=>{ [0,250,500].forEach(t=>setTimeout(()=>beep(1318,300,.5),t)); };
 
@@ -628,10 +649,21 @@ function currentItem(){
   return seq[Math.min(seq.length-1,idx)];
 }
 function currentVideo(){ const it=currentItem(); return {vid:(it&&it.src)||plan.src||null, ex:it&&it.src?it.name:null}; }
+function kgFor(slot){ return (plan.kgSlot&&plan.kgSlot[slot]!=null)?plan.kgSlot[slot]:plan.kg; }
+function tileValues(cur){ const v=(DB.bells||[]).filter(x=>x!=null); if(cur!=null&&!v.includes(cur)) v.push(cur); return [...new Set(v)].sort((a,b)=>a-b).slice(0,4); }
+let tilesKey="";
+function renderTiles(){
+  const el=$("tiles"), it=currentItem(); const show=!!(it&&!it.rest&&!it.bw&&state!=="done");
+  const cur=show?kgFor(it.slot):null, key=show?`${it.slot}|${cur}|${(DB.bells||[]).join(",")}`:"";
+  if(key===tilesKey) return; tilesKey=key;
+  if(!show){ el.hidden=true; el.innerHTML=""; return; }
+  const vals=tileValues(cur); el.hidden=false; el.style.gridTemplateColumns=`repeat(${vals.length},1fr)`;
+  el.innerHTML=vals.map(v=>`<button class="tile${v===cur?" on":""}" data-act="t-kg" data-kg="${v}" aria-label="${v} kg">${v} kg</button>`).join("");
+}
 function renderTimer(){
   if(!plan) return;
   const fill=$("fill"), clock=$("clock"), seq=plan.seq, n=N(), total=n*60, base=plan.segs[0];
-  $("t-video").hidden=!currentVideo().vid;
+  $("t-video").hidden=!currentVideo().vid; $("t-sound").hidden=state!=="idle"; renderTiles();
   if(state==="idle"){
     $("app").classList.remove("done"); fill.style.height="0%"; fill.style.background="var(--work)";
     $("roundlbl").innerHTML=roundLabel(null); $("total").textContent=fmt(total);
@@ -687,9 +719,10 @@ function tick(now){
     lastWhole=whole;
     if(elapsed>=prepEnd){
       const inMin=whole%60, idx=Math.floor(whole/60);
-      if(whole>=N()*60){ state="done"; beepEnd(); renderTimer(); releaseWake(); setTimeout(()=>openSummary(true),900); return; }
+      if(whole>=N()*60){ state="done"; beepEnd(); renderTimer(); releaseWake(); setTimeout(stopSilent,1500); setTimeout(()=>openSummary(true),900); return; }
       if(inMin===0){ beepMinute(); state="run"; }
       else if(inMin>=57) beepCount();
+      else if(inMin===50) beepDouble();
       const it=plan.seq[idx];
       if(it&&!it.rest&&it.work!=null&&inMin===it.work) beep(440,250,.4);
     }else{ const left=prepEnd-elapsed; if(left<3.5&&Math.ceil(left)<=3) beepCount(); }
@@ -698,25 +731,25 @@ function tick(now){
   raf=requestAnimationFrame(tick);
 }
 function startRun(){
-  if(state==="idle"){ elapsed=-PREP; prepEnd=0; lastWhole=null; state="prep"; startedAt=new Date().toISOString(); beep(660,100,.3); }
-  else if(state==="paused"){ state=elapsed<prepEnd?"prep":"run"; }
+  if(state==="idle"){ elapsed=-PREP; prepEnd=0; lastWhole=null; state="prep"; startedAt=new Date().toISOString(); unlockAudio(); beepDouble(); }
+  else if(state==="paused"){ state=elapsed<prepEnd?"prep":"run"; unlockAudio(); }
   else return;
   keepAwake();
   $("main").textContent="Pauza";
   lastTick=performance.now(); raf=requestAnimationFrame(tick);
 }
-function pauseRun(){ state="paused"; cancelAnimationFrame(raf); $("main").textContent="Wznów"; $("phase").textContent="Pauza"; }
-function resetRun(){ cancelAnimationFrame(raf); plan=JSON.parse(planBase); state="idle"; elapsed=0; prepEnd=0; lastWhole=null; renderTimer(); }
+function pauseRun(){ state="paused"; cancelAnimationFrame(raf); stopSilent(); $("main").textContent="Wznów"; $("phase").textContent="Pauza"; }
+function resetRun(){ cancelAnimationFrame(raf); stopSilent(); plan=JSON.parse(planBase); state="idle"; elapsed=0; prepEnd=0; lastWhole=null; tilesKey=""; renderTimer(); }
 function startTimer(p){
   plan=JSON.parse(JSON.stringify(p));
   if(!plan.segs) plan.segs=[{items:plan.items,rounds:plan.rounds,label:null}];
-  delete plan.seq; plan.repsEdit={};
+  delete plan.seq; plan.repsEdit={}; plan.kgSlot={}; tilesKey="";
   DB.last={plan:JSON.parse(JSON.stringify(plan)),at:new Date().toISOString()}; DB.kg=plan.kg; save();
   plan.seq=seqOf(plan.segs); planBase=JSON.stringify(plan);
   cancelAnimationFrame(raf); state="idle"; elapsed=0; prepEnd=0; lastWhole=null;
   show("timer"); renderTimer();
 }
-function leaveTimer(){ cancelAnimationFrame(raf); state="idle"; elapsed=0; prepEnd=0; releaseWake(); goHome(); }
+function leaveTimer(){ cancelAnimationFrame(raf); state="idle"; elapsed=0; prepEnd=0; releaseWake(); stopSilent(); tilesKey=""; goHome(); }
 /* kontynuacja po podsumowaniu: obcięcie planu do zaliczonych minut, potem 10 s przygotowania i dalej */
 function truncatePlan(mins){
   let acc=0;
@@ -725,7 +758,7 @@ function truncatePlan(mins){
 function continueTimer(startMin){
   plan.seq=seqOf(plan.segs); prepEnd=startMin*60; elapsed=prepEnd-PREP; lastWhole=null; state="prep";
   closeModal(); $("app").classList.remove("done"); show("timer"); keepAwake();
-  $("main").textContent="Pauza"; renderTimer(); beep(660,100,.3);
+  $("main").textContent="Pauza"; renderTimer(); unlockAudio(); beepDouble();
   lastTick=performance.now(); raf=requestAnimationFrame(tick);
 }
 function startExtra(){
@@ -743,19 +776,20 @@ let SUM=null;
 function openSummary(complete){
   const n=N(), mins=complete?n:doneMinutes(), secs=complete?n*60:Math.floor(Math.max(elapsed,prepEnd));
   const reps={}; plan.seq.forEach(it=>{ if(!(it.slot in reps)) reps[it.slot]=(plan.repsEdit&&plan.repsEdit[it.slot]!=null)?plan.repsEdit[it.slot]:it.reps; });
-  SUM={complete,mins,secs,kg:plan.kg,reps};
+  SUM={complete,mins,secs,kg:plan.kg,reps,kgSlot:Object.assign({},plan.kgSlot||{})};
   renderSummary();
 }
-function sumTotals(){ let reps=0,vol=0; for(let m=0;m<SUM.mins;m++){ const it=plan.seq[m]; if(!it||it.rest) continue; const r=SUM.reps[it.slot]; if(r==null) continue; reps+=r; if(!it.bw) vol+=r*SUM.kg; } return {reps,vol}; }
+const sumKg=slot=>(SUM.kgSlot[slot]!=null?SUM.kgSlot[slot]:SUM.kg);
+function sumTotals(){ let reps=0,vol=0; for(let m=0;m<SUM.mins;m++){ const it=plan.seq[m]; if(!it||it.rest) continue; const r=SUM.reps[it.slot]; if(r==null) continue; reps+=r; if(!it.bw) vol+=r*sumKg(it.slot); } return {reps,vol}; }
 function renderSummary(){
   const t=sumTotals(), base=plan.segs[0], baseLen=base.items.length, baseTot=base.cut!=null?base.cut:baseLen*base.rounds;
   const baseMin=Math.min(SUM.mins,baseTot), rd=Math.round(baseMin/baseLen*10)/10, ex=Math.max(0,SUM.mins-baseTot);
   const rows=plan.segs.map((sg,si)=>(si>0?`<div class="h2" style="color:var(--work)">${esc(sg.label||"Dogrywka")} · ${rdWord(sg.rounds)}</div>`:"")+
     sg.items.map((it,i)=>{ if(it.rest) return ""; const slot=`${si}:${i}`;
-      return `<div class="exrow"><div class="row"><div class="grow"><div class="nm">${esc(it.name)}${it.side?` <span class="side">${it.side==="L"?"lewa":"prawa"}</span>`:""}</div><div class="ds">${esc(it.label)}${it.bw?" · bez kettla":""}</div></div>${it.reps==null?`<div class="ds">na czas</div>`:stepper("sum-reps",SUM.reps[slot],{step:1,min:0,max:200,idx:slot})}</div></div>`; }).join("")).join("");
+      return `<div class="exrow"><div class="row"><div class="grow"><div class="nm">${esc(it.name)}${it.side?` <span class="side">${it.side==="L"?"lewa":"prawa"}</span>`:""}</div><div class="ds">${esc(it.label)}${it.bw?" · bez kettla":` · <button class="kgchip" data-act="sum-kg-cycle" data-slot="${slot}" aria-label="Zmień ciężar">${sumKg(slot)} kg</button>`}</div></div>${it.reps==null?`<div class="ds">na czas</div>`:stepper("sum-reps",SUM.reps[slot],{step:1,min:0,max:200,idx:slot})}</div></div>`; }).join("")).join("");
   const html=`<h2>${SUM.complete?"Zrobione! 💪":"Trening przerwany"}</h2>
     <div class="sub">${esc(plan.name)} · ${fmt(SUM.secs)} · ${SUM.mins} z ${N()} minut · ${rd} z ${base.rounds} rund${ex?` + dogrywka ${ex} min`:""}</div>
-    <div class="row" style="margin-top:14px"><div class="grow nm">Kettlebell</div>${stepper("sum-kg",SUM.kg,{unit:"kg",step:2,min:0,max:60})}</div>
+    <div class="row" style="margin-top:14px"><div class="grow"><div class="nm">Kettlebell</div><div class="ds">domyślny; przy ćwiczeniu dotknij „kg”, by zmienić</div></div>${stepper("sum-kg",SUM.kg,{unit:"kg",step:2,min:0,max:60})}</div>
     <div class="h2">Powtórzenia na minutę – popraw, jeśli było inaczej</div>${rows}
     <div class="stat" style="margin-top:14px"><div><b>${nf(t.reps)}</b><span>powtórzeń</span></div><div><b>${nf(t.vol)}</b><span>kg przerzucone</span></div><div><b>${fmt(SUM.secs)}</b><span>czas</span></div></div>
     <div class="h2">Chcesz zrobić więcej?</div>
@@ -764,10 +798,11 @@ function renderSummary(){
   const sc=$("sheet").scrollTop; openModal(html,true); $("sheet").scrollTop=sc;
 }
 function saveSummary(){
-  DB.log.unshift(makeEntry(plan,slot=>SUM.reps[slot],SUM.mins,SUM.secs,SUM.complete,startedAt||new Date().toISOString()));
+  plan.kg=SUM.kg;
+  DB.log.unshift(makeEntry(plan,slot=>SUM.reps[slot],SUM.mins,SUM.secs,SUM.complete,startedAt||new Date().toISOString(),slot=>sumKg(slot)));
   DB.kg=SUM.kg; save(); closeModal(); leaveTimer(); toast("Zapisano w dzienniku");
 }
-function keepRepsEdits(){ plan.repsEdit=Object.assign({},SUM.reps); plan.kg=SUM.kg; }
+function keepRepsEdits(){ plan.repsEdit=Object.assign({},SUM.reps); plan.kg=SUM.kg; plan.kgSlot=Object.assign({},SUM.kgSlot); tilesKey=""; }
 function abortTimer(){
   if(state==="idle"||state==="done"){ leaveTimer(); return; }
   if(state!=="paused") pauseRun();
@@ -828,7 +863,7 @@ function buildFit(e){
   // set: timestamp, start_time, duration(ms), repetitions, weight(kg×16), set_type(0 rest/1 active), category, weight_display_unit(1 kg), message_index
   let mi=0;
   const set=(t0,dur,it)=>{ const active=!!it; const cat=active?(FIT_CAT[it.id]==null?65534:FIT_CAT[it.id]):null;
-    enc.msg(4,[t0+dur,t0,dur*1000, active&&it.reps!=null?it.reps:null, active?(it.bw?0:(e.kg||0)*16):null, active?1:0, cat, active?1:null, mi++]); };
+    enc.msg(4,[t0+dur,t0,dur*1000, active&&it.reps!=null?it.reps:null, active?(it.bw?0:((it.kg!=null?it.kg:(e.kg||0))*16)):null, active?1:0, cat, active?1:null, mi++]); };
   enc.msg(3,[start]);
   for(let m=0;m<mins;m++){ const it=seq[m]||{rest:true}, t0=start+m*60;
     if(it.rest){ set(t0,60,null); }
@@ -877,6 +912,12 @@ function openGarmin(id){
     <button class="btn secondary" data-act="modal-close">Zamknij</button></div>`);
 }
 
+function openBells(){
+  openModal(`<h2>Kafle z ciężarem</h2><div class="sub">Szybkie przyciski na ekranie zegara do zmiany kettla w trakcie treningu – dla bieżącego ćwiczenia.</div>
+    ${[0,1,2].map(i=>`<div class="row" style="margin-top:12px"><div class="grow nm">Kafel ${i+1}</div>${stepper("bell",(DB.bells||[])[i]||0,{unit:"kg",step:2,min:0,max:60,idx:i})}</div>`).join("")}
+    <div class="stack"><button class="btn" data-act="modal-close">Gotowe</button></div>`);
+}
+
 /* ---- przykładowy ukończony trening (do testu dziennika i eksportu FIT) ---- */
 function addSampleLog(){
   const s=getSet("p-biceps-abs"); const p=buildPlan(s,effective(s)); const n=p.items.length*p.rounds;
@@ -918,6 +959,13 @@ const ACT={
   "log-open":d=>{ LOG.open=LOG.open===+d.id?null:+d.id; renderLog(); },
   "log-delete":d=>{ DB.log=DB.log.filter(e=>e.id!==+d.id); LOG.open=null; save(); renderLog(); toast("Wpis usunięty"); },
   "t-abort":()=>abortTimer(),
+  "t-sound":()=>{ unlockAudio(); beepDouble(); setTimeout(beepCount,700); setTimeout(beepMinute,1100); toast("Nie słychać? Wyłącz tryb cichy i podgłoś telefon"); },
+  "t-kg":d=>{ const kg=+d.kg, it=currentItem(); if(navigator.vibrate) navigator.vibrate(30);
+      if(state==="idle"||!it){ plan.kg=kg; DB.kg=kg; if(DB.last&&DB.last.plan) DB.last.plan.kg=kg; save(); planBase=JSON.stringify(plan); }
+      else { plan.kgSlot=plan.kgSlot||{}; plan.kgSlot[it.slot]=kg; }
+      tilesKey=""; renderTimer(); },
+  "bells":()=>openBells(),
+  "sum-kg-cycle":d=>{ const vals=tileValues(SUM.kg), cur=sumKg(d.slot), i=vals.indexOf(cur); const next=vals[(i+1)%vals.length]; if(next===SUM.kg) delete SUM.kgSlot[d.slot]; else SUM.kgSlot[d.slot]=next; renderSummary(); },
   "t-video":()=>{ const cv=currentVideo(); if(!cv.vid) return; if(state==="run"||state==="prep") pauseRun(); openVideo(cv.vid,null,cv.ex); },
   "abort-save":()=>{ closeModal(); openSummary(false); },
   "abort-drop":()=>{ closeModal(); leaveTimer(); },
@@ -939,6 +987,7 @@ const FIELD={
   "c-kg":inp=>{ C.kg=num(inp); renderCreatorParts(); },
   "c-item":inp=>{ const it=C.items[+inp.dataset.idx]; const v=num(inp); if(it.work!=null) it.work=v; else { it.reps=v; it.range=null; } renderCreatorParts(); },
   "sum-kg":inp=>{ SUM.kg=num(inp); renderSummary(); },
+  "bell":inp=>{ DB.bells=DB.bells||[8,10,20]; DB.bells[+inp.dataset.idx]=num(inp); save(); tilesKey=""; if(view.screen==="detail") renderDetail(); },
   "sum-reps":inp=>{ SUM.reps[inp.dataset.idx]=num(inp); renderSummary(); },
 };
 document.addEventListener("click",e=>{
