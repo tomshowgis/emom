@@ -12,6 +12,7 @@
     --sat:env(safe-area-inset-top); --sab:env(safe-area-inset-bottom);
   }
   *{box-sizing:border-box;margin:0;padding:0}
+  [hidden]{display:none!important}
   html,body{height:100%;background:var(--bg);color:var(--ink);
     font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
     -webkit-user-select:none;user-select:none;overflow:hidden;-webkit-tap-highlight-color:transparent}
@@ -118,14 +119,19 @@
   .toast.on{display:block}
 
   /* ---- timer (układ z v1) ---- */
-  #s-timer{padding:0}
-  #fill{position:absolute;left:0;right:0;bottom:0;height:0%;background:var(--work);opacity:.22;transition:height .25s linear,background .4s}
-  #app{position:relative;flex:1;display:flex;flex-direction:column;min-height:0;
+  #s-timer,#s-cal{padding:0}
+  #fill,#cfill{position:absolute;left:0;right:0;bottom:0;height:0%;background:var(--work);opacity:.22;transition:height .25s linear,background .4s}
+  #app,#capp{position:relative;flex:1;display:flex;flex-direction:column;min-height:0;
     padding:max(14px,var(--sat)) 22px max(16px,var(--sab))}
-  #app header{display:flex;align-items:center;gap:10px;font-size:15px;color:var(--muted);font-variant-numeric:tabular-nums}
-  #app header b{color:var(--ink);font-weight:600}
-  #app header .grow{text-align:center}
-  #app header .back{width:44px;height:44px;font-size:26px;margin-left:-8px}
+  #app header,#capp header{display:flex;align-items:center;gap:10px;font-size:15px;color:var(--muted);font-variant-numeric:tabular-nums}
+  #app header b,#capp header b{color:var(--ink);font-weight:600}
+  #app header .grow,#capp header .grow{text-align:center}
+  #app header .back,#capp header .back{width:44px;height:44px;font-size:26px;margin-left:-8px}
+  .clock.wide span{font-size:min(27vw,170px);letter-spacing:-.03em}
+  .clock.rest span{color:var(--rest)}
+  #cal-ex{margin-top:8px;padding-bottom:4px}
+  #cal-ex .chip{min-height:40px;font-size:14px}
+  .h2.tap{width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center;min-height:44px}
   #app header #t-video{margin:0 4px 0 0;font-size:18px}
   #app header #t-video[hidden]{display:none}
   .minute{margin-top:12px;font-size:15px;color:var(--work);font-weight:700;letter-spacing:.02em}
@@ -148,7 +154,7 @@
   .kgchip{display:inline-flex;align-items:center;font-size:13px;padding:4px 10px;min-height:32px;background:var(--line);color:var(--ink);font-weight:700;border-radius:999px;vertical-align:middle}
   #t-sound{display:inline-flex;margin-top:8px;min-height:44px;font-size:15px}
   #t-sound[hidden]{display:none}
-  @media (prefers-reduced-motion:reduce){#fill{transition:none} button:active{transform:none}}
+  @media (prefers-reduced-motion:reduce){#fill,#cfill{transition:none} button:active{transform:none}}
 </style>
 </head>
 <body>
@@ -207,6 +213,32 @@
     </div>
     <div class="hint">Sygnał co minutę, podwójny „pik-pik” 10 s przed końcem i 3-2-1. Ekran nie gaśnie.<br>
       <button class="btn secondary small" id="t-sound" data-act="t-sound">Test dźwięku</button></div>
+  </main>
+</section>
+
+<!-- ===== KALISTENIKA ===== -->
+<section class="screen" id="s-cal">
+  <div id="cfill"></div>
+  <main id="capp">
+    <header>
+      <button class="back" data-act="cal-abort" aria-label="Zakończ trening">‹</button>
+      <span id="cal-serie">Seria <b>–</b></span>
+      <span class="grow"></span>
+      <span>Łącznie <b id="cal-total">0:00</b></span>
+    </header>
+    <div class="minute" id="cal-mode">Kalistenika</div>
+    <div class="name" id="cal-name">Podciągnięcia</div>
+    <div class="filters" id="cal-ex"></div>
+    <div class="clock wide" id="cal-clock"><span id="cal-sec">0:00</span></div>
+    <div class="phase" id="cal-phase"></div>
+    <div class="next" id="cal-sets"></div>
+    <div class="row" id="cal-reps" style="margin-top:12px" hidden></div>
+    <div class="tiles" id="cal-tiles" hidden></div>
+    <div class="controls">
+      <button id="cal-main" class="btn" data-act="cal-main">Start</button>
+      <button id="cal-end" class="btn secondary" data-act="cal-end">Wróć</button>
+    </div>
+    <div class="hint">Stoper liczy cały trening. „Koniec serii” włącza zegar przerwy, „Start serii” zaczyna kolejną. Pik-pik, gdy minie cel przerwy.</div>
   </main>
 </section>
 
@@ -289,6 +321,12 @@ const EXERCISES = [
   {id:"rest",name:"Przerwa",desc:"Cała minuta odpoczynku – oddychaj i wracaj do siebie.",rest:true,tags:[],src:null},
 ];
 const EXMAP = Object.fromEntries(EXERCISES.map(e=>[e.id,e]));
+/* Kalistenika: serie na czas (stoper treningu + przerwy), bez EMOM. fit = kategoria ćwiczenia w pliku FIT. */
+const CAL_EX={
+  "cal-pullup":{name:"Podciągnięcia",desc:"Serie podciągnięć na drążku – ile dasz radę, przerwa według uznania.",fit:21,def:5},
+  "cal-pushup":{name:"Pompki",desc:"Serie pompek – ile dasz radę, przerwa według uznania.",fit:22,def:10},
+};
+const CAL_RESTS=[60,90,120,180];
 
 const I=(id,reps,range,o)=>Object.assign({id,reps:reps==null?null:reps,range:range||null},o||{});
 const PRESETS = [
@@ -332,7 +370,7 @@ const PRESETS = [
    STAN (localStorage)
    ===================================================================== */
 const KEY="emom_v2";
-const DEFAULT_DB=()=>({v:2,custom:[],prefs:{},log:[],last:null,kg:16,bells:[8,10,12,16,20],bellsV2:true});
+const DEFAULT_DB=()=>({v:2,custom:[],prefs:{},log:[],last:null,kg:16,bells:[8,10,12,16,20],bellsV2:true,calRest:90,ui:{videos:false}});
 let DB=(()=>{ try{ const d=JSON.parse(localStorage.getItem(KEY)); if(d&&d.v===2){ const m=Object.assign(DEFAULT_DB(),d);
   if(!d.bellsV2){ m.bells=[8,10,12,16,20]; m.bellsV2=true; } /* migracja: stare 3 kafle → pełny zestaw */
   return m; } }catch(e){} return DEFAULT_DB(); })();
@@ -466,10 +504,14 @@ function renderHome(){
       <button class="btn small" data-act="last-start">Start</button></div></div>`; }
   if(DB.custom.length) h+=`<div class="h2">Moje sety</div>`+DB.custom.map(setCard).join("");
   h+=`<div class="h2">Sety z filmów</div>`+PRESETS.filter(s=>s.src).map(setCard).join("");
+  h+=`<div class="h2">Kalistenika</div>`+Object.entries(CAL_EX).map(([id,ex])=>{ const last=DB.log.find(e=>e.kind==="cal"&&e.sets&&e.sets.some(x=>x.ex===id));
+    return `<div class="card tap" data-act="open-cal" data-ex="${id}"><h3>${esc(ex.name)}</h3><div class="sub">Serie na czas: stoper treningu, zegar przerwy, wpisujesz powtórzenia.</div>${last?`<div class="sub">ostatnio: ${last.rounds} ${plural(last.rounds,"seria","serie","serii")} · ${nf(last.reps)} powt. · ${when(last.date)}</div>`:""}</div>`; }).join("");
   h+=`<div class="h2">Zestawy na partie ciała</div>`+PRESETS.filter(s=>!s.src).map(setCard).join("");
-  h+=`<div class="h2">Filmy źródłowe</div>`+Object.entries(VIDEOS).map(([id,v])=>`<div class="card row"><div class="grow"><div class="nm">${esc(v.t)}</div><div class="sub">${esc(v.ch)}</div></div><button class="play" data-act="video" data-vid="${id}" aria-label="Film">▶</button></div>`).join("");
+  const vOpen=!!(DB.ui&&DB.ui.videos);
+  h+=`<button class="h2 tap" data-act="toggle-videos" aria-expanded="${vOpen}">Filmy źródłowe (${Object.keys(VIDEOS).length}) <span>${vOpen?"▾ zwiń":"▸ rozwiń"}</span></button>`;
+  if(vOpen) h+=Object.entries(VIDEOS).map(([id,v])=>`<div class="card row"><div class="grow"><div class="nm">${esc(v.t)}</div><div class="sub">${esc(v.ch)}</div></div><button class="play" data-act="video" data-vid="${id}" aria-label="Film">▶</button></div>`).join("");
   h+=`<div class="empty">Biblioteka: ${EXERCISES.length-1} ćwiczeń · ${PRESETS.length} setów wbudowanych</div>`;
-  $("home").innerHTML=h;
+  const sc=$("home").scrollTop; $("home").innerHTML=h; $("home").scrollTop=sc;
 }
 
 /* =====================================================================
@@ -581,9 +623,12 @@ function renderLog(){
   list.forEach(e=>{ const d=new Date(e.date), open=LOG.open===e.id;
     h+=`<div class="card tap" data-act="log-open" data-id="${e.id}"><div class="row"><div class="grow"><h3>${esc(e.name)}</h3>
       <div class="sub">${d.toLocaleDateString("pl-PL",{weekday:"short",day:"numeric",month:"short",year:"numeric"})} · ${d.toLocaleTimeString("pl-PL",{hour:"2-digit",minute:"2-digit"})}</div>
-      <div class="sub">${fmt(e.seconds)} · ${e.kg} kg · ${nf(e.reps)} powt. · <b>${nf(e.volume)} kg</b>${e.complete?"":" · przerwany"}</div></div>
+      <div class="sub">${e.kind==="cal"?`${fmt(e.seconds)} · ${e.rounds} ${plural(e.rounds,"seria","serie","serii")} · <b>${nf(e.reps)} powt.</b>`:`${fmt(e.seconds)} · ${e.kg} kg · ${nf(e.reps)} powt. · <b>${nf(e.volume)} kg</b>${e.complete?"":" · przerwany"}`}</div></div>
       <span class="num" style="width:auto">${open?"▲":"▼"}</span></div>`;
-    if(open){ h+=`<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">`;
+    if(open&&e.kind==="cal"){ h+=`<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">`;
+      (e.sets||[]).forEach((st,i)=>{ h+=`<div class="row" style="padding:6px 0"><div class="grow nm" style="font-size:15px">Seria ${i+1} · ${esc(st.name||"")}</div><div class="ds">${st.reps} powt. · ${fmt(st.dur||0)}${st.rest?` · przerwa ${fmt(st.rest)}`:""}</div></div>`; });
+      h+=`<div class="row" style="margin-top:8px"><button class="btn secondary small grow" data-act="garmin" data-id="${e.id}">Wyślij do Garmin (FIT)</button><button class="btn danger small" data-act="log-delete" data-id="${e.id}">Usuń</button></div></div>`; }
+    else if(open){ h+=`<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">`;
       const exMin=entrySeq(e).filter(it=>it.seg>0).length;
       h+=`<div class="ds">${rdWord(e.rounds)} planowane · zaliczone ${e.roundsDone} · ${e.minutes} min pracy${exMin?` (w tym dogrywka ${exMin} min)`:""}</div>`;
       entrySegs(e).forEach((sg,si)=>{ if(si>0) h+=`<div class="ds" style="margin-top:8px;color:var(--work);font-weight:700">${esc(sg.label||"Dogrywka")} · ${rdWord(sg.rounds)}</div>`;
@@ -818,6 +863,83 @@ function abortTimer(){
 }
 
 /* =====================================================================
+   KALISTENIKA – serie na czas: stoper treningu, zegar przerwy, powtórzenia wpisywane w przerwie
+   ===================================================================== */
+let CAL=null; // {ex, state: idle|set|rest|done, elapsed, lastTick, raf, sets:[{ex,reps,dur,rest}], setStart, restStart, startedAt, beeped}
+const calRest=()=>DB.calRest||90;
+const calTotals=()=>CAL.sets.reduce((a,x)=>a+(x.reps||0),0);
+function calName(){ const exs=[...new Set(CAL.sets.map(x=>x.ex))]; return (exs.length?exs:[CAL.ex]).map(id=>CAL_EX[id].name).join(" + "); }
+function goCal(ex){
+  CAL={ex,state:"idle",elapsed:0,lastTick:0,raf:null,sets:[],setStart:0,restStart:0,startedAt:null,beeped:false};
+  $("cal-reps").innerHTML=`<div class="grow nm" id="cal-reps-lbl"></div>`+stepper("cal-reps",CAL_EX[ex].def,{step:1,min:0,max:200});
+  show("cal"); renderCal();
+}
+function renderCal(){
+  const c=CAL; if(!c) return; const k=c.sets.length, ex=CAL_EX[c.ex], fill=$("cfill"), clock=$("cal-clock");
+  $("cal-total").textContent=fmt(c.elapsed); $("cal-name").textContent=ex.name;
+  $("cal-ex").innerHTML=Object.entries(CAL_EX).map(([id,e])=>`<button class="chip${id===c.ex?" on":""}" data-act="cal-ex" data-ex="${id}">${e.name}</button>`).join("");
+  $("cal-sets").innerHTML=k?`Serie: ${c.sets.map(x=>`<b>${x.reps}</b>${x.ex!==c.ex?` <span class="ds">(${CAL_EX[x.ex].name})</span>`:""}`).join(" · ")} = ${calTotals()} powt.`:"Jeszcze bez serii.";
+  const tiles=$("cal-tiles"); tiles.innerHTML=CAL_RESTS.map(v=>`<button class="tile${v===calRest()?" on":""}" data-act="cal-rest" data-t="${v}">${v} s</button>`).join("");
+  clock.classList.remove("warn","rest");
+  if(c.state==="idle"){
+    $("cal-serie").innerHTML="Seria <b>–</b>"; $("cal-mode").textContent="Kalistenika · serie na czas"; $("cal-sec").textContent="0:00";
+    $("cal-phase").textContent="Start uruchamia stoper. Po każdej serii naciśnij „Koniec serii”.";
+    $("cal-reps").hidden=true; tiles.hidden=false; $("cal-main").textContent="Start"; $("cal-end").textContent="Wróć"; fill.style.height="0%"; return;
+  }
+  if(c.state==="set"){
+    $("cal-serie").innerHTML=`Seria <b>${k+1}</b>`; $("cal-mode").textContent=`Seria ${k+1} w toku`; $("cal-sec").textContent=fmt(c.elapsed);
+    $("cal-phase").textContent="Rób powtórzenia – stoper liczy cały trening";
+    $("cal-reps").hidden=true; tiles.hidden=true; $("cal-main").textContent="Koniec serii"; $("cal-end").textContent="Zakończ"; fill.style.height="0%"; return;
+  }
+  if(c.state==="rest"){
+    const r=c.elapsed-c.restStart, t=calRest(), over=r>=t;
+    $("cal-serie").innerHTML=`Seria <b>${k}</b>`; $("cal-mode").textContent=over?"Przerwa minęła":"Przerwa"; $("cal-sec").textContent=fmt(r);
+    clock.classList.add(over?"warn":"rest");
+    $("cal-phase").textContent=over?"Start serii, gdy będziesz gotowy":`Wpisz powtórzenia serii ${k} · cel przerwy ${t} s`;
+    $("cal-reps").hidden=false; $("cal-reps-lbl").textContent=`Powtórzenia w serii ${k}`;
+    const inp=$("cal-reps").querySelector("input"); if(document.activeElement!==inp) inp.value=c.sets[k-1].reps;
+    tiles.hidden=false; $("cal-main").textContent="Start serii"; $("cal-end").textContent="Zakończ";
+    fill.style.background=over?"var(--work)":"var(--rest)"; fill.style.height=`${Math.min(100,r/t*100)}%`;
+  }
+}
+function calTick(now){
+  const c=CAL; if(!c||(c.state!=="set"&&c.state!=="rest")) return;
+  c.elapsed+=(now-c.lastTick)/1000; c.lastTick=now;
+  if(c.state==="rest"&&!c.beeped&&c.elapsed-c.restStart>=calRest()){ c.beeped=true; beepDouble(); }
+  renderCal(); c.raf=requestAnimationFrame(calTick);
+}
+function calMain(){
+  const c=CAL;
+  if(c.state==="idle"){ c.startedAt=new Date().toISOString(); c.state="set"; c.elapsed=0; c.setStart=0; unlockAudio(); beepMinute(); keepAwake(); c.lastTick=performance.now(); c.raf=requestAnimationFrame(calTick); }
+  else if(c.state==="set"){ const last=c.sets[c.sets.length-1]; c.sets.push({ex:c.ex,reps:last?last.reps:CAL_EX[c.ex].def,dur:Math.round(c.elapsed-c.setStart),rest:0}); c.state="rest"; c.restStart=c.elapsed; c.beeped=false; beep(440,250,.4); }
+  else if(c.state==="rest"){ c.sets[c.sets.length-1].rest=Math.round(c.elapsed-c.restStart); c.state="set"; c.setStart=c.elapsed; beepMinute(); }
+  renderCal();
+}
+function calFinish(){
+  const c=CAL; cancelAnimationFrame(c.raf);
+  if(c.state==="set"){ const d=c.elapsed-c.setStart; if(d>=3){ const last=c.sets[c.sets.length-1]; c.sets.push({ex:c.ex,reps:last?last.reps:CAL_EX[c.ex].def,dur:Math.round(d),rest:0}); } }
+  else if(c.state==="rest"){ c.sets[c.sets.length-1].rest=Math.round(c.elapsed-c.restStart); }
+  c.state="done"; releaseWake(); stopSilent(); renderCalSummary();
+}
+function calLeave(){ if(CAL&&CAL.raf) cancelAnimationFrame(CAL.raf); releaseWake(); stopSilent(); CAL=null; closeModal(); goHome(); }
+function renderCalSummary(){
+  const c=CAL, reps=calTotals(), secs=Math.floor(c.elapsed), n=c.sets.length, mixed=new Set(c.sets.map(x=>x.ex)).size>1;
+  const rows=c.sets.map((x,i)=>`<div class="exrow"><div class="row"><div class="grow"><div class="nm">Seria ${i+1}${mixed?` · ${CAL_EX[x.ex].name}`:""}</div><div class="ds">${fmt(x.dur)} pracy${x.rest?` · przerwa ${fmt(x.rest)}`:""}</div></div>${stepper("cal-sum",x.reps,{step:1,min:0,max:200,idx:i})}</div></div>`).join("");
+  const html=`<h2>Zrobione! 💪</h2><div class="sub">${esc(calName())} · ${fmt(secs)} · ${n} ${plural(n,"seria","serie","serii")} · ${reps} powt.</div>
+    <div class="h2">Powtórzenia w seriach</div>${rows||`<div class="empty">Brak zaliczonych serii.</div>`}
+    <div class="stat" style="margin-top:14px"><div><b>${reps}</b><span>powtórzeń</span></div><div><b>${n}</b><span>${plural(n,"seria","serie","serii")}</span></div><div><b>${fmt(secs)}</b><span>czas</span></div></div>
+    <div class="stack"><button class="btn" data-act="cal-save" ${n?"":"disabled"}>Zapisz w dzienniku</button><button class="btn secondary" data-act="cal-save-garmin" ${n?"":"disabled"}>Zapisz i wyślij do Garmin</button><button class="btn secondary" data-act="cal-skip">Nie zapisuj</button></div>`;
+  const sc=$("sheet").scrollTop; openModal(html,true); $("sheet").scrollTop=sc;
+}
+function calEntry(){
+  const c=CAL, reps=calTotals();
+  return { id:Date.now(), date:c.startedAt||new Date().toISOString(), kind:"cal", setId:null, name:calName(), rounds:c.sets.length, roundsDone:c.sets.length,
+    minutes:Math.round(c.elapsed/60), seconds:Math.floor(c.elapsed), kg:0, complete:true, reps, volume:0,
+    sets:c.sets.map(x=>({ex:x.ex,name:CAL_EX[x.ex].name,reps:x.reps,dur:x.dur,rest:x.rest})) };
+}
+function calSave(){ DB.log.unshift(calEntry()); save(); const id=DB.log[0].id; calLeave(); toast("Zapisano w dzienniku"); return id; }
+
+/* =====================================================================
    EKSPORT FIT (Garmin Connect → Importuj dane)
    Garmin nie udostępnia prywatnym osobom API do zapisu, więc trening wychodzi jako plik .FIT
    (aktywność „Siła” z seriami: powtórzenia, ciężar, kategoria ćwiczenia). Koder pisze minimalny,
@@ -852,11 +974,10 @@ function fitEncoder(){
   };
 }
 function buildFit(e){
-  const enc=fitEncoder();
-  const start=Math.floor(new Date(e.date).getTime()/1000)+PREP-FIT_EPOCH;
+  const enc=fitEncoder(); const cal=e.kind==="cal";
+  const start=Math.floor(new Date(e.date).getTime()/1000)+(cal?0:PREP)-FIT_EPOCH;
   const total=Math.max(60,Math.floor(e.seconds||0)); const end=start+total;
   const tz=-new Date(e.date).getTimezoneOffset()*60;
-  const seq=seqOf(entrySegs(e)), mins=Math.min(e.minutes||0,seq.length,Math.floor(total/60));
   enc.def(0,0,[[0,"enum"],[1,"u16"],[2,"u16"],[3,"u32z"],[4,"u32"]]);      // file_id: type, manufacturer, product, serial, time_created
   enc.msg(0,[4,255,1,(e.id%4000000000)||1,start]);
   enc.def(1,49,[[0,"u16"]]); enc.msg(1,[100]);                                // file_creator: software_version
@@ -865,22 +986,32 @@ function buildFit(e){
   enc.def(3,20,[[253,"u32"]]);                                               // record: timestamp
   enc.def(4,225,[[254,"u32"],[6,"u32"],[0,"u32"],[3,"u16"],[4,"u16"],[5,"enum"],[7,"u16"],[9,"u16"],[10,"u16"]]);
   // set: timestamp, start_time, duration(ms), repetitions, weight(kg×16), set_type(0 rest/1 active), category, weight_display_unit(1 kg), message_index
-  let mi=0;
-  const set=(t0,dur,it)=>{ const active=!!it; const cat=active?(FIT_CAT[it.id]==null?65534:FIT_CAT[it.id]):null;
-    enc.msg(4,[t0+dur,t0,dur*1000, active&&it.reps!=null?it.reps:null, active?(it.bw?0:((it.kg!=null?it.kg:(e.kg||0))*16)):null, active?1:0, cat, active?1:null, mi++]); };
-  enc.msg(3,[start]);
-  for(let m=0;m<mins;m++){ const it=seq[m]||{rest:true}, t0=start+m*60;
-    if(it.rest){ set(t0,60,null); }
-    else if(it.work!=null&&it.work<60){ set(t0,it.work,it); set(t0+it.work,60-it.work,null); }
-    else set(t0,60,it);
-    enc.msg(3,[t0+60]); }
-  if(end>start+mins*60) enc.msg(3,[end]);
   enc.def(5,19,[[253,"u32"],[2,"u32"],[7,"u32"],[8,"u32"],[0,"enum"],[1,"enum"],[25,"enum"],[39,"enum"],[254,"u16"]]);
   // lap: timestamp, start_time, total_elapsed_time, total_timer_time, event(9 lap), event_type(1 stop), sport(10 training), sub_sport(20 strength), message_index
-  let laps=0, lapStart=0;
-  for(let m=1;m<=mins;m++){ const cur=seq[m-1], nxt=seq[m]; const brk=(m===mins)||!nxt||nxt.seg!==cur.seg||nxt.round!==cur.round;
-    if(brk){ const t0=start+lapStart*60, t1=(m===mins)?end:start+m*60; if(t1>t0) enc.msg(5,[t1,t0,(t1-t0)*1000,(t1-t0)*1000,9,1,10,20,laps++]); lapStart=m; } }
-  if(!laps){ enc.msg(5,[end,start,total*1000,total*1000,9,1,10,20,laps++]); }
+  let mi=0, laps=0;
+  const lap=(t0,t1)=>{ if(t1>t0) enc.msg(5,[t1,t0,(t1-t0)*1000,(t1-t0)*1000,9,1,10,20,laps++]); };
+  const set=(t0,dur,it,kg)=>{ const active=!!it; const cat=active?(FIT_CAT[it.id]==null?65534:FIT_CAT[it.id]):null;
+    enc.msg(4,[t0+dur,t0,dur*1000, active&&it.reps!=null?it.reps:null, active?(it.bw?0:kg*16):null, active?1:0, cat, active?1:null, mi++]); };
+  enc.msg(3,[start]);
+  if(cal){ // kalistenika: seria (aktywna) + przerwa, okrążenie na serię
+    let t=start; (e.sets||[]).forEach(st=>{ const d=Math.max(1,Math.round(st.dur||1)), r=Math.max(0,Math.round(st.rest||0)); const cat=(CAL_EX[st.ex]||{}).fit;
+      enc.msg(4,[t+d,t,d*1000,st.reps,0,1,cat==null?65534:cat,1,mi++]); enc.msg(3,[t+d]);
+      if(r>0){ enc.msg(4,[t+d+r,t+d,r*1000,null,null,0,null,null,mi++]); enc.msg(3,[t+d+r]); }
+      lap(t,t+d+r); t+=d+r; });
+    if(end>t) enc.msg(3,[end]);
+  } else {
+    const seq=seqOf(entrySegs(e)), mins=Math.min(e.minutes||0,seq.length,Math.floor(total/60));
+    for(let m=0;m<mins;m++){ const it=seq[m]||{rest:true}, t0=start+m*60, kg=(it.kg!=null?it.kg:(e.kg||0));
+      if(it.rest){ set(t0,60,null); }
+      else if(it.work!=null&&it.work<60){ set(t0,it.work,it,kg); set(t0+it.work,60-it.work,null); }
+      else set(t0,60,it,kg);
+      enc.msg(3,[t0+60]); }
+    if(end>start+mins*60) enc.msg(3,[end]);
+    let lapStart=0;
+    for(let m=1;m<=mins;m++){ const cur=seq[m-1], nxt=seq[m]; const brk=(m===mins)||!nxt||nxt.seg!==cur.seg||nxt.round!==cur.round;
+      if(brk){ lap(start+lapStart*60,(m===mins)?end:start+m*60); lapStart=m; } }
+  }
+  if(!laps) lap(start,end);
   enc.msg(2,[end,0,4,0]);                                                    // event: stop_all
   enc.def(6,18,[[253,"u32"],[2,"u32"],[7,"u32"],[8,"u32"],[0,"enum"],[1,"enum"],[5,"enum"],[6,"enum"],[25,"u16"],[26,"u16"],[254,"u16"]]);
   // session: timestamp, start_time, elapsed, timer, event(8 session), event_type(1), sport(10), sub_sport(20), first_lap_index, num_laps, message_index
@@ -905,7 +1036,7 @@ async function exportFit(id){
 function openGarmin(id){
   const e=DB.log.find(x=>x.id===id); if(!e) return;
   openModal(`<h2>Wyślij do Garmin Connect</h2>
-    <div class="sub">${esc(e.name)} · ${fmt(e.seconds)} · ${nf(e.reps)} powt. · ${e.kg} kg</div>
+    <div class="sub">${esc(e.name)} · ${fmt(e.seconds)} · ${nf(e.reps)} powt. · ${e.kind==="cal"?`${e.rounds} ${plural(e.rounds,"seria","serie","serii")}`:`${e.kg} kg`}</div>
     <div class="sub" style="margin-top:10px">Garmin nie ma otwartego API dla prywatnych kont, więc trening jedzie jako plik FIT (aktywność „Siła” z seriami, powtórzeniami i ciężarem). Garmin nie odbierze go sam – plik trzeba wskazać ręcznie.</div>
     <ol class="sub" style="margin:10px 0 0 18px;line-height:1.5">
       <li>Zapisz plik FIT (na iPhonie: <b>Zapisz do Plików</b>; możesz też wysłać AirDropem na komputer).</li>
@@ -963,6 +1094,18 @@ const ACT={
   "log-day":d=>{ LOG.sel=LOG.sel===d.key?null:d.key; renderLog(); },
   "log-open":d=>{ LOG.open=LOG.open===+d.id?null:+d.id; renderLog(); },
   "log-delete":d=>{ DB.log=DB.log.filter(e=>e.id!==+d.id); LOG.open=null; save(); renderLog(); toast("Wpis usunięty"); },
+  "toggle-videos":()=>{ DB.ui=DB.ui||{}; DB.ui.videos=!DB.ui.videos; save(); renderHome(); },
+  "open-cal":d=>goCal(d.ex),
+  "cal-ex":d=>{ if(!CAL||CAL.state==="set") return; CAL.ex=d.ex; renderCal(); },
+  "cal-rest":d=>{ DB.calRest=+d.t; save(); if(CAL){ CAL.beeped=CAL.state==="rest"&&(CAL.elapsed-CAL.restStart)>=DB.calRest; renderCal(); } },
+  "cal-main":()=>calMain(),
+  "cal-end":()=>{ if(CAL.state==="idle"){ calLeave(); return; } openModal(`<h2>Zakończyć trening?</h2><div class="sub">${CAL.sets.length} ${plural(CAL.sets.length,"seria","serie","serii")} · ${fmt(CAL.elapsed)}</div><div class="stack"><button class="btn" data-act="cal-finish">Zakończ i podsumuj</button><button class="btn secondary" data-act="modal-close">Wróć do treningu</button></div>`); },
+  "cal-abort":()=>{ if(CAL.state==="idle"){ calLeave(); return; } openModal(`<h2>Zakończyć trening?</h2><div class="sub">${CAL.sets.length} ${plural(CAL.sets.length,"seria","serie","serii")} · ${fmt(CAL.elapsed)}</div><div class="stack"><button class="btn" data-act="cal-finish">Zakończ i podsumuj</button><button class="btn danger" data-act="cal-drop">Odrzuć i wyjdź</button><button class="btn secondary" data-act="modal-close">Wróć do treningu</button></div>`); },
+  "cal-finish":()=>{ closeModal(); calFinish(); },
+  "cal-drop":()=>calLeave(),
+  "cal-save":()=>calSave(),
+  "cal-save-garmin":()=>{ const id=calSave(); openGarmin(id); },
+  "cal-skip":()=>calLeave(),
   "t-abort":()=>abortTimer(),
   "t-sound":()=>{ unlockAudio(); beepDouble(); setTimeout(beepCount,700); setTimeout(beepMinute,1100); toast("Nie słychać? Wyłącz tryb cichy i podgłoś telefon"); },
   "t-kg":d=>{ const kg=+d.kg, it=currentItem(); if(navigator.vibrate) navigator.vibrate(30);
@@ -994,6 +1137,8 @@ const FIELD={
   "c-kg":inp=>{ C.kg=num(inp); renderCreatorParts(); },
   "c-item":inp=>{ const it=C.items[+inp.dataset.idx]; const v=num(inp); if(it.work!=null) it.work=v; else { it.reps=v; it.range=null; } renderCreatorParts(); },
   "sum-kg":inp=>{ SUM.kg=num(inp); renderSummary(); },
+  "cal-reps":inp=>{ const k=CAL?CAL.sets.length:0; if(k) CAL.sets[k-1].reps=num(inp); if(CAL) renderCal(); },
+  "cal-sum":inp=>{ CAL.sets[+inp.dataset.idx].reps=num(inp); renderCalSummary(); },
   "bell":inp=>{ DB.bells=DB.bells||[8,10,20]; DB.bells[+inp.dataset.idx]=num(inp); save(); tilesKey=""; if(view.screen==="detail") renderDetail(); },
   "sum-reps":inp=>{ SUM.reps[inp.dataset.idx]=num(inp); renderSummary(); },
 };
