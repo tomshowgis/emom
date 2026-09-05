@@ -333,8 +333,9 @@ const PRESETS = [
    ===================================================================== */
 const KEY="emom_v2";
 const DEFAULT_DB=()=>({v:2,custom:[],prefs:{},log:[],last:null,kg:16,bells:[8,10,12,16,20],bellsV2:true});
-let DB=(()=>{ try{ const d=JSON.parse(localStorage.getItem(KEY)); if(d&&d.v===2) return Object.assign(DEFAULT_DB(),d); }catch(e){} return DEFAULT_DB(); })();
-if(!DB.bellsV2){ DB.bells=[8,10,12,16,20]; DB.bellsV2=true; }
+let DB=(()=>{ try{ const d=JSON.parse(localStorage.getItem(KEY)); if(d&&d.v===2){ const m=Object.assign(DEFAULT_DB(),d);
+  if(!d.bellsV2){ m.bells=[8,10,12,16,20]; m.bellsV2=true; } /* migracja: stare 3 kafle → pełny zestaw */
+  return m; } }catch(e){} return DEFAULT_DB(); })();
 function save(){ try{ localStorage.setItem(KEY,JSON.stringify(DB)); }catch(e){} }
 
 /* =====================================================================
