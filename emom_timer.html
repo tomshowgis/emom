@@ -238,7 +238,7 @@
       <button id="cal-main" class="btn" data-act="cal-main">Start</button>
       <button id="cal-end" class="btn secondary" data-act="cal-end">Wróć</button>
     </div>
-    <div class="hint">Stoper liczy cały trening. „Koniec serii” włącza zegar przerwy, „Start serii” zaczyna kolejną. Pik-pik, gdy minie cel przerwy.</div>
+    <div class="hint">Serie bez limitu czasu. Stoper mierzy cały trening, „Koniec serii” włącza zegar przerwy, „Start serii” zaczyna kolejną. Pik-pik, gdy minie cel przerwy.</div>
   </main>
 </section>
 
@@ -505,7 +505,7 @@ function renderHome(){
   if(DB.custom.length) h+=`<div class="h2">Moje sety</div>`+DB.custom.map(setCard).join("");
   h+=`<div class="h2">Sety z filmów</div>`+PRESETS.filter(s=>s.src).map(setCard).join("");
   h+=`<div class="h2">Kalistenika</div>`+Object.entries(CAL_EX).map(([id,ex])=>{ const last=DB.log.find(e=>e.kind==="cal"&&e.sets&&e.sets.some(x=>x.ex===id));
-    return `<div class="card tap" data-act="open-cal" data-ex="${id}"><h3>${esc(ex.name)}</h3><div class="sub">Serie na czas: stoper treningu, zegar przerwy, wpisujesz powtórzenia.</div>${last?`<div class="sub">ostatnio: ${last.rounds} ${plural(last.rounds,"seria","serie","serii")} · ${nf(last.reps)} powt. · ${when(last.date)}</div>`:""}</div>`; }).join("");
+    return `<div class="card tap" data-act="open-cal" data-ex="${id}"><h3>${esc(ex.name)}</h3><div class="sub">Liczą się powtórzenia w seriach. Stoper mierzy tylko cały trening i przerwy.</div>${last?`<div class="sub">ostatnio: ${last.rounds} ${plural(last.rounds,"seria","serie","serii")} · ${nf(last.reps)} powt. · ${when(last.date)}</div>`:""}</div>`; }).join("");
   h+=`<div class="h2">Zestawy na partie ciała</div>`+PRESETS.filter(s=>!s.src).map(setCard).join("");
   const vOpen=!!(DB.ui&&DB.ui.videos);
   h+=`<button class="h2 tap" data-act="toggle-videos" aria-expanded="${vOpen}">Filmy źródłowe (${Object.keys(VIDEOS).length}) <span>${vOpen?"▾ zwiń":"▸ rozwiń"}</span></button>`;
@@ -626,7 +626,7 @@ function renderLog(){
       <div class="sub">${e.kind==="cal"?`${fmt(e.seconds)} · ${e.rounds} ${plural(e.rounds,"seria","serie","serii")} · <b>${nf(e.reps)} powt.</b>`:`${fmt(e.seconds)} · ${e.kg} kg · ${nf(e.reps)} powt. · <b>${nf(e.volume)} kg</b>${e.complete?"":" · przerwany"}`}</div></div>
       <span class="num" style="width:auto">${open?"▲":"▼"}</span></div>`;
     if(open&&e.kind==="cal"){ h+=`<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">`;
-      (e.sets||[]).forEach((st,i)=>{ h+=`<div class="row" style="padding:6px 0"><div class="grow nm" style="font-size:15px">Seria ${i+1} · ${esc(st.name||"")}</div><div class="ds">${st.reps} powt. · ${fmt(st.dur||0)}${st.rest?` · przerwa ${fmt(st.rest)}`:""}</div></div>`; });
+      (e.sets||[]).forEach((st,i)=>{ h+=`<div class="row" style="padding:6px 0"><div class="grow nm" style="font-size:15px">Seria ${i+1} · ${esc(st.name||"")}</div><div class="ds">${st.reps} powt.${st.rest?` · przerwa ${fmt(st.rest)}`:""}</div></div>`; });
       h+=`<div class="row" style="margin-top:8px"><button class="btn secondary small grow" data-act="garmin" data-id="${e.id}">Wyślij do Garmin (FIT)</button><button class="btn danger small" data-act="log-delete" data-id="${e.id}">Usuń</button></div></div>`; }
     else if(open){ h+=`<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">`;
       const exMin=entrySeq(e).filter(it=>it.seg>0).length;
@@ -882,13 +882,13 @@ function renderCal(){
   const tiles=$("cal-tiles"); tiles.innerHTML=CAL_RESTS.map(v=>`<button class="tile${v===calRest()?" on":""}" data-act="cal-rest" data-t="${v}">${v} s</button>`).join("");
   clock.classList.remove("warn","rest");
   if(c.state==="idle"){
-    $("cal-serie").innerHTML="Seria <b>–</b>"; $("cal-mode").textContent="Kalistenika · serie na czas"; $("cal-sec").textContent="0:00";
+    $("cal-serie").innerHTML="Seria <b>–</b>"; $("cal-mode").textContent="Kalistenika · serie i powtórzenia"; $("cal-sec").textContent="0:00";
     $("cal-phase").textContent="Start uruchamia stoper. Po każdej serii naciśnij „Koniec serii”.";
     $("cal-reps").hidden=true; tiles.hidden=false; $("cal-main").textContent="Start"; $("cal-end").textContent="Wróć"; fill.style.height="0%"; return;
   }
   if(c.state==="set"){
     $("cal-serie").innerHTML=`Seria <b>${k+1}</b>`; $("cal-mode").textContent=`Seria ${k+1} w toku`; $("cal-sec").textContent=fmt(c.elapsed);
-    $("cal-phase").textContent="Rób powtórzenia – stoper liczy cały trening";
+    $("cal-phase").textContent="Rób powtórzenia – liczy się ich liczba, nie czas";
     $("cal-reps").hidden=true; tiles.hidden=true; $("cal-main").textContent="Koniec serii"; $("cal-end").textContent="Zakończ"; fill.style.height="0%"; return;
   }
   if(c.state==="rest"){
@@ -924,7 +924,7 @@ function calFinish(){
 function calLeave(){ if(CAL&&CAL.raf) cancelAnimationFrame(CAL.raf); releaseWake(); stopSilent(); CAL=null; closeModal(); goHome(); }
 function renderCalSummary(){
   const c=CAL, reps=calTotals(), secs=Math.floor(c.elapsed), n=c.sets.length, mixed=new Set(c.sets.map(x=>x.ex)).size>1;
-  const rows=c.sets.map((x,i)=>`<div class="exrow"><div class="row"><div class="grow"><div class="nm">Seria ${i+1}${mixed?` · ${CAL_EX[x.ex].name}`:""}</div><div class="ds">${fmt(x.dur)} pracy${x.rest?` · przerwa ${fmt(x.rest)}`:""}</div></div>${stepper("cal-sum",x.reps,{step:1,min:0,max:200,idx:i})}</div></div>`).join("");
+  const rows=c.sets.map((x,i)=>`<div class="exrow"><div class="row"><div class="grow"><div class="nm">Seria ${i+1}${mixed?` · ${CAL_EX[x.ex].name}`:""}</div><div class="ds">${x.rest?`przerwa po serii ${fmt(x.rest)}`:"ostatnia seria"}</div></div>${stepper("cal-sum",x.reps,{step:1,min:0,max:200,idx:i})}</div></div>`).join("");
   const html=`<h2>Zrobione! 💪</h2><div class="sub">${esc(calName())} · ${fmt(secs)} · ${n} ${plural(n,"seria","serie","serii")} · ${reps} powt.</div>
     <div class="h2">Powtórzenia w seriach</div>${rows||`<div class="empty">Brak zaliczonych serii.</div>`}
     <div class="stat" style="margin-top:14px"><div><b>${reps}</b><span>powtórzeń</span></div><div><b>${n}</b><span>${plural(n,"seria","serie","serii")}</span></div><div><b>${fmt(secs)}</b><span>czas</span></div></div>
