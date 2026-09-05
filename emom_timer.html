@@ -140,9 +140,10 @@
   .controls{display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-top:18px}
   .hint{margin-top:10px;font-size:13px;color:var(--muted);text-align:center}
   .done .name{color:var(--done)}
-  .tiles{display:grid;gap:8px;margin-top:12px}
+  .tiles{display:flex;gap:8px;margin-top:12px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;padding:2px 0}
+  .tiles::-webkit-scrollbar{display:none}
   .tiles[hidden]{display:none}
-  .tile{min-height:52px;border-radius:12px;background:var(--line);font-weight:800;font-size:19px;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+  .tile{flex:1 0 88px;min-height:52px;padding:0 12px;border-radius:12px;background:var(--line);font-weight:800;font-size:19px;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;scroll-snap-align:center;white-space:nowrap}
   .tile.on{background:var(--work);color:#1a1a1a}
   .kgchip{display:inline-flex;align-items:center;font-size:13px;padding:4px 10px;min-height:32px;background:var(--line);color:var(--ink);font-weight:700;border-radius:999px;vertical-align:middle}
   #t-sound{display:inline-flex;margin-top:8px;min-height:44px;font-size:15px}
@@ -331,8 +332,9 @@ const PRESETS = [
    STAN (localStorage)
    ===================================================================== */
 const KEY="emom_v2";
-const DEFAULT_DB=()=>({v:2,custom:[],prefs:{},log:[],last:null,kg:16,bells:[8,10,20]});
+const DEFAULT_DB=()=>({v:2,custom:[],prefs:{},log:[],last:null,kg:16,bells:[8,10,12,16,20],bellsV2:true});
 let DB=(()=>{ try{ const d=JSON.parse(localStorage.getItem(KEY)); if(d&&d.v===2) return Object.assign(DEFAULT_DB(),d); }catch(e){} return DEFAULT_DB(); })();
+if(!DB.bellsV2){ DB.bells=[8,10,12,16,20]; DB.bellsV2=true; }
 function save(){ try{ localStorage.setItem(KEY,JSON.stringify(DB)); }catch(e){} }
 
 /* =====================================================================
@@ -650,15 +652,16 @@ function currentItem(){
 }
 function currentVideo(){ const it=currentItem(); return {vid:(it&&it.src)||plan.src||null, ex:it&&it.src?it.name:null}; }
 function kgFor(slot){ return (plan.kgSlot&&plan.kgSlot[slot]!=null)?plan.kgSlot[slot]:plan.kg; }
-function tileValues(cur){ const v=(DB.bells||[]).filter(x=>x!=null); if(cur!=null&&!v.includes(cur)) v.push(cur); return [...new Set(v)].sort((a,b)=>a-b).slice(0,4); }
+function tileValues(cur){ const v=(DB.bells||[]).filter(x=>x!=null); if(cur!=null&&!v.includes(cur)) v.push(cur); return [...new Set(v)].sort((a,b)=>a-b); }
 let tilesKey="";
 function renderTiles(){
   const el=$("tiles"), it=currentItem(); const show=!!(it&&!it.rest&&!it.bw&&state!=="done");
   const cur=show?kgFor(it.slot):null, key=show?`${it.slot}|${cur}|${(DB.bells||[]).join(",")}`:"";
   if(key===tilesKey) return; tilesKey=key;
   if(!show){ el.hidden=true; el.innerHTML=""; return; }
-  const vals=tileValues(cur); el.hidden=false; el.style.gridTemplateColumns=`repeat(${vals.length},1fr)`;
+  const vals=tileValues(cur); el.hidden=false;
   el.innerHTML=vals.map(v=>`<button class="tile${v===cur?" on":""}" data-act="t-kg" data-kg="${v}" aria-label="${v} kg">${v} kg</button>`).join("");
+  const on=el.querySelector(".tile.on"); if(on&&el.scrollWidth>el.clientWidth) el.scrollLeft=Math.max(0,on.offsetLeft-(el.clientWidth-on.offsetWidth)/2);
 }
 function renderTimer(){
   if(!plan) return;
@@ -913,9 +916,10 @@ function openGarmin(id){
 }
 
 function openBells(){
-  openModal(`<h2>Kafle z ciężarem</h2><div class="sub">Szybkie przyciski na ekranie zegara do zmiany kettla w trakcie treningu – dla bieżącego ćwiczenia.</div>
-    ${[0,1,2].map(i=>`<div class="row" style="margin-top:12px"><div class="grow nm">Kafel ${i+1}</div>${stepper("bell",(DB.bells||[])[i]||0,{unit:"kg",step:2,min:0,max:60,idx:i})}</div>`).join("")}
-    <div class="stack"><button class="btn" data-act="modal-close">Gotowe</button></div>`);
+  const b=DB.bells||[];
+  openModal(`<h2>Kafle z ciężarem</h2><div class="sub">Szybkie przyciski na ekranie zegara do zmiany kettla w trakcie treningu – dla bieżącego ćwiczenia. Przy większej liczbie kafli rząd przewija się w poziomie.</div>
+    ${b.map((v,i)=>`<div class="row" style="margin-top:10px"><div class="grow nm">Kafel ${i+1}</div>${stepper("bell",v,{unit:"kg",step:2,min:0,max:60,idx:i})}<button class="mini del" data-act="bell-del" data-idx="${i}" aria-label="Usuń kafel" ${b.length<=1?"disabled":""}>✕</button></div>`).join("")}
+    <div class="stack"><button class="btn secondary" data-act="bell-add" ${b.length>=8?"disabled":""}>＋ Dodaj kafel</button><button class="btn" data-act="modal-close">Gotowe</button></div>`);
 }
 
 /* ---- przykładowy ukończony trening (do testu dziennika i eksportu FIT) ---- */
@@ -965,6 +969,8 @@ const ACT={
       else { plan.kgSlot=plan.kgSlot||{}; plan.kgSlot[it.slot]=kg; }
       tilesKey=""; renderTimer(); },
   "bells":()=>openBells(),
+  "bell-add":()=>{ DB.bells=DB.bells||[]; const last=DB.bells[DB.bells.length-1]||6; DB.bells.push(Math.min(60,last+2)); save(); tilesKey=""; openBells(); if(view.screen==="detail") renderDetail(); },
+  "bell-del":d=>{ if(DB.bells.length<=1) return; DB.bells.splice(+d.idx,1); save(); tilesKey=""; openBells(); if(view.screen==="detail") renderDetail(); },
   "sum-kg-cycle":d=>{ const vals=tileValues(SUM.kg), cur=sumKg(d.slot), i=vals.indexOf(cur); const next=vals[(i+1)%vals.length]; if(next===SUM.kg) delete SUM.kgSlot[d.slot]; else SUM.kgSlot[d.slot]=next; renderSummary(); },
   "t-video":()=>{ const cv=currentVideo(); if(!cv.vid) return; if(state==="run"||state==="prep") pauseRun(); openVideo(cv.vid,null,cv.ex); },
   "abort-save":()=>{ closeModal(); openSummary(false); },
