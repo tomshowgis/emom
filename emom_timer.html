@@ -232,7 +232,7 @@
     <div class="clock wide" id="cal-clock"><span id="cal-sec">0:00</span></div>
     <div class="phase" id="cal-phase"></div>
     <div class="next" id="cal-sets"></div>
-    <div class="row" id="cal-reps" style="margin-top:12px" hidden></div>
+    <div id="cal-reps" style="margin-top:12px" hidden></div>
     <div class="tiles" id="cal-tiles" hidden></div>
     <div class="controls">
       <button id="cal-main" class="btn" data-act="cal-main">Start</button>
@@ -323,7 +323,7 @@ const EXERCISES = [
 const EXMAP = Object.fromEntries(EXERCISES.map(e=>[e.id,e]));
 /* Kalistenika: serie na czas (stoper treningu + przerwy), bez EMOM. fit = kategoria ćwiczenia w pliku FIT. */
 const CAL_EX={
-  "cal-pullup":{name:"Podciągnięcia",desc:"Serie podciągnięć na drążku – ile dasz radę, przerwa według uznania.",fit:21,def:5},
+  "cal-pullup":{name:"Podciągnięcia",desc:"Serie podciągnięć na drążku – ile dasz radę, przerwa według uznania.",fit:21,def:5,grips:[["over","nachwyt"],["under","podchwyt"]]},
   "cal-pushup":{name:"Pompki",desc:"Serie pompek – ile dasz radę, przerwa według uznania.",fit:22,def:10},
 };
 const CAL_RESTS=[60,90,120,180];
@@ -437,7 +437,7 @@ function makeEntry(p,repsOf,mins,secs,complete,dateIso,kgOf){
 function stepper(field,value,o){
   o=o||{}; const idx=o.idx==null?"":` data-idx="${o.idx}"`;
   return `<div class="stepper"><button data-act="step" data-d="-1" aria-label="Mniej">−</button>`+
-    `<input type="number" inputmode="numeric" pattern="[0-9]*" data-field="${field}"${idx} data-step="${o.step||1}" data-min="${o.min==null?0:o.min}" data-max="${o.max==null?999:o.max}" value="${value==null?0:value}">`+
+    `<input type="number" inputmode="numeric" pattern="[0-9]*" data-field="${field}"${idx}${o.attr?" "+o.attr:""} data-step="${o.step||1}" data-min="${o.min==null?0:o.min}" data-max="${o.max==null?999:o.max}" value="${value==null?0:value}">`+
     `<button data-act="step" data-d="1" aria-label="Więcej">+</button>${o.unit?`<span class="unit">${o.unit}</span>`:""}</div>`;
 }
 function num(inp){ let v=parseInt(inp.value,10); if(isNaN(v)) v=+inp.dataset.min||0; v=Math.max(+inp.dataset.min,Math.min(+inp.dataset.max,v)); inp.value=v; return v; }
@@ -626,7 +626,7 @@ function renderLog(){
       <div class="sub">${e.kind==="cal"?`${fmt(e.seconds)} · ${e.rounds} ${plural(e.rounds,"seria","serie","serii")} · <b>${nf(e.reps)} powt.</b>`:`${fmt(e.seconds)} · ${e.kg} kg · ${nf(e.reps)} powt. · <b>${nf(e.volume)} kg</b>${e.complete?"":" · przerwany"}`}</div></div>
       <span class="num" style="width:auto">${open?"▲":"▼"}</span></div>`;
     if(open&&e.kind==="cal"){ h+=`<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">`;
-      (e.sets||[]).forEach((st,i)=>{ h+=`<div class="row" style="padding:6px 0"><div class="grow nm" style="font-size:15px">Seria ${i+1} · ${esc(st.name||"")}</div><div class="ds">${st.reps} powt.${st.rest?` · przerwa ${fmt(st.rest)}`:""}</div></div>`; });
+      (e.sets||[]).forEach((st,i)=>{ h+=`<div class="row" style="padding:6px 0"><div class="grow nm" style="font-size:15px">Seria ${i+1} · ${esc(st.name||"")}</div><div class="ds">${st.reps} powt.${(CAL_EX[st.ex]||{}).grips&&(st.over||st.under)?` (${[["over","nachwyt"],["under","podchwyt"]].filter(([k])=>st[k]>0).map(([k,nm])=>`${st[k]} ${nm}`).join(" + ")})`:""}${st.rest?` · przerwa ${fmt(st.rest)}`:""}</div></div>`; });
       h+=`<div class="row" style="margin-top:8px"><button class="btn secondary small grow" data-act="garmin" data-id="${e.id}">Wyślij do Garmin (FIT)</button><button class="btn danger small" data-act="log-delete" data-id="${e.id}">Usuń</button></div></div>`; }
     else if(open){ h+=`<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">`;
       const exMin=entrySeq(e).filter(it=>it.seg>0).length;
@@ -869,16 +869,27 @@ let CAL=null; // {ex, state: idle|set|rest|done, elapsed, lastTick, raf, sets:[{
 const calRest=()=>DB.calRest||90;
 const calTotals=()=>CAL.sets.reduce((a,x)=>a+(x.reps||0),0);
 function calName(){ const exs=[...new Set(CAL.sets.map(x=>x.ex))]; return (exs.length?exs:[CAL.ex]).map(id=>CAL_EX[id].name).join(" + "); }
+const gripsOf=ex=>CAL_EX[ex].grips||null;
+function newSet(ex){ const g=gripsOf(ex); const last=[...CAL.sets].reverse().find(x=>x.ex===ex); const st={ex,reps:last?last.reps:CAL_EX[ex].def,dur:0,rest:0};
+  if(g){ g.forEach(([k])=>{ st[k]=last?(last[k]||0):0; }); if(!last) st[g[0][0]]=CAL_EX[ex].def; st.reps=g.reduce((a,[k])=>a+(st[k]||0),0); } return st; }
+function setReps(st,g,v){ if(g&&g!=="all"){ st[g]=v; st.reps=(gripsOf(st.ex)||[]).reduce((a,[k])=>a+(st[k]||0),0); } else st.reps=v; }
+function setLabel(st,short){ const g=gripsOf(st.ex); if(!g) return `<b>${st.reps}</b>`;
+  const parts=g.filter(([k])=>st[k]>0).map(([k,n])=>`${st[k]} ${short?n.slice(0,4):n}`); return `<b>${st.reps}</b>${parts.length>1||(parts.length===1&&st.reps!==st[g[0][0]])?` <span class="ds">(${parts.join(" + ")})</span>`:(parts.length===1?` <span class="ds">${short?g.find(([k])=>st[k]>0)[1].slice(0,4):g.find(([k])=>st[k]>0)[1]}</span>`:"")}`; }
+function calTotalsBy(){ const t={}; CAL.sets.forEach(st=>{ const o=t[st.ex]=t[st.ex]||{reps:0}; o.reps+=st.reps||0; (gripsOf(st.ex)||[]).forEach(([k])=>{ o[k]=(o[k]||0)+(st[k]||0); }); }); return t; }
+function calTotalsHtml(){ const t=calTotalsBy(); return Object.entries(t).map(([ex,o])=>{ const g=gripsOf(ex); const sub=g?g.filter(([k])=>o[k]>0).map(([k,n])=>`${n} ${o[k]}`).join(" · "):""; return `${CAL_EX[ex].name} <b>${o.reps}</b>${sub?` <span class="ds">(${sub})</span>`:""}`; }).join(" · "); }
+function repsPanelHtml(st,k){ const g=gripsOf(st.ex);
+  if(!g) return `<div class="row"><div class="grow nm">Powtórzenia w serii ${k}</div>${stepper("cal-reps",st.reps,{step:1,min:0,max:200,attr:'data-g="all"'})}</div>`;
+  return `<div class="nm" style="margin-bottom:6px">Seria ${k} – ile powtórzeń każdym chwytem?</div>`+g.map(([key,n],i)=>`<div class="row"${i?' style="margin-top:8px"':""}><div class="grow nm" style="font-weight:600">${n}</div>${stepper("cal-reps",st[key]||0,{step:1,min:0,max:200,attr:`data-g="${key}"`})}</div>`).join(""); }
 function goCal(ex){
-  CAL={ex,state:"idle",elapsed:0,lastTick:0,raf:null,sets:[],setStart:0,restStart:0,startedAt:null,beeped:false};
-  $("cal-reps").innerHTML=`<div class="grow nm" id="cal-reps-lbl"></div>`+stepper("cal-reps",CAL_EX[ex].def,{step:1,min:0,max:200});
+  CAL={ex,state:"idle",elapsed:0,lastTick:0,raf:null,sets:[],setStart:0,restStart:0,startedAt:null,beeped:false,repsKey:""};
   show("cal"); renderCal();
 }
 function renderCal(){
   const c=CAL; if(!c) return; const k=c.sets.length, ex=CAL_EX[c.ex], fill=$("cfill"), clock=$("cal-clock");
   $("cal-total").textContent=fmt(c.elapsed); $("cal-name").textContent=ex.name;
   $("cal-ex").innerHTML=Object.entries(CAL_EX).map(([id,e])=>`<button class="chip${id===c.ex?" on":""}" data-act="cal-ex" data-ex="${id}">${e.name}</button>`).join("");
-  $("cal-sets").innerHTML=k?`Serie: ${c.sets.map(x=>`<b>${x.reps}</b>${x.ex!==c.ex?` <span class="ds">(${CAL_EX[x.ex].name})</span>`:""}`).join(" · ")} = ${calTotals()} powt.`:"Jeszcze bez serii.";
+  const mixed=new Set(c.sets.map(x=>x.ex)).size>1;
+  $("cal-sets").innerHTML=k?`Serie: ${c.sets.map(x=>setLabel(x,false)+(mixed?` <span class="ds">${CAL_EX[x.ex].name.toLowerCase()}</span>`:"")).join(" · ")}<br>Razem: ${calTotalsHtml()} = <b>${calTotals()} powt.</b>`:"Jeszcze bez serii.";
   const tiles=$("cal-tiles"); tiles.innerHTML=CAL_RESTS.map(v=>`<button class="tile${v===calRest()?" on":""}" data-act="cal-rest" data-t="${v}">${v} s</button>`).join("");
   clock.classList.remove("warn","rest");
   if(c.state==="idle"){
@@ -896,8 +907,9 @@ function renderCal(){
     $("cal-serie").innerHTML=`Seria <b>${k}</b>`; $("cal-mode").textContent=over?"Przerwa minęła":"Przerwa"; $("cal-sec").textContent=fmt(r);
     clock.classList.add(over?"warn":"rest");
     $("cal-phase").textContent=over?"Start serii, gdy będziesz gotowy":`Wpisz powtórzenia serii ${k} · cel przerwy ${t} s`;
-    $("cal-reps").hidden=false; $("cal-reps-lbl").textContent=`Powtórzenia w serii ${k}`;
-    const inp=$("cal-reps").querySelector("input"); if(document.activeElement!==inp) inp.value=c.sets[k-1].reps;
+    const st=c.sets[k-1], key=`${k}|${st.ex}`; const box=$("cal-reps"); box.hidden=false;
+    if(c.repsKey!==key){ c.repsKey=key; box.innerHTML=repsPanelHtml(st,k); }
+    box.querySelectorAll("input").forEach(inp=>{ if(document.activeElement!==inp){ const g=inp.dataset.g; inp.value=g==="all"?st.reps:(st[g]||0); } });
     tiles.hidden=false; $("cal-main").textContent="Start serii"; $("cal-end").textContent="Zakończ";
     fill.style.background=over?"var(--work)":"var(--rest)"; fill.style.height=`${Math.min(100,r/t*100)}%`;
   }
@@ -911,23 +923,26 @@ function calTick(now){
 function calMain(){
   const c=CAL;
   if(c.state==="idle"){ c.startedAt=new Date().toISOString(); c.state="set"; c.elapsed=0; c.setStart=0; unlockAudio(); beepMinute(); keepAwake(); c.lastTick=performance.now(); c.raf=requestAnimationFrame(calTick); }
-  else if(c.state==="set"){ const last=c.sets[c.sets.length-1]; c.sets.push({ex:c.ex,reps:last?last.reps:CAL_EX[c.ex].def,dur:Math.round(c.elapsed-c.setStart),rest:0}); c.state="rest"; c.restStart=c.elapsed; c.beeped=false; beep(440,250,.4); }
+  else if(c.state==="set"){ const st=newSet(c.ex); st.dur=Math.round(c.elapsed-c.setStart); c.sets.push(st); c.state="rest"; c.restStart=c.elapsed; c.beeped=false; beep(440,250,.4); }
   else if(c.state==="rest"){ c.sets[c.sets.length-1].rest=Math.round(c.elapsed-c.restStart); c.state="set"; c.setStart=c.elapsed; beepMinute(); }
   renderCal();
 }
 function calFinish(){
   const c=CAL; cancelAnimationFrame(c.raf);
-  if(c.state==="set"){ const d=c.elapsed-c.setStart; if(d>=3){ const last=c.sets[c.sets.length-1]; c.sets.push({ex:c.ex,reps:last?last.reps:CAL_EX[c.ex].def,dur:Math.round(d),rest:0}); } }
+  if(c.state==="set"){ const d=c.elapsed-c.setStart; if(d>=3){ const st=newSet(c.ex); st.dur=Math.round(d); c.sets.push(st); } }
   else if(c.state==="rest"){ c.sets[c.sets.length-1].rest=Math.round(c.elapsed-c.restStart); }
   c.state="done"; releaseWake(); stopSilent(); renderCalSummary();
 }
 function calLeave(){ if(CAL&&CAL.raf) cancelAnimationFrame(CAL.raf); releaseWake(); stopSilent(); CAL=null; closeModal(); goHome(); }
 function renderCalSummary(){
   const c=CAL, reps=calTotals(), secs=Math.floor(c.elapsed), n=c.sets.length, mixed=new Set(c.sets.map(x=>x.ex)).size>1;
-  const rows=c.sets.map((x,i)=>`<div class="exrow"><div class="row"><div class="grow"><div class="nm">Seria ${i+1}${mixed?` · ${CAL_EX[x.ex].name}`:""}</div><div class="ds">${x.rest?`przerwa po serii ${fmt(x.rest)}`:"ostatnia seria"}</div></div>${stepper("cal-sum",x.reps,{step:1,min:0,max:200,idx:i})}</div></div>`).join("");
+  const rows=c.sets.map((x,i)=>{ const g=gripsOf(x.ex); const head=`<div class="grow"><div class="nm">Seria ${i+1}${mixed?` · ${CAL_EX[x.ex].name}`:""}</div><div class="ds">${x.rest?`przerwa po serii ${fmt(x.rest)}`:"ostatnia seria"}</div></div>`;
+    if(!g) return `<div class="exrow"><div class="row">${head}${stepper("cal-sum",x.reps,{step:1,min:0,max:200,idx:i,attr:'data-g="all"'})}</div></div>`;
+    return `<div class="exrow"><div class="row">${head}<div class="nm">${x.reps}</div></div>`+g.map(([key,n])=>`<div class="row ctl" style="margin-top:8px"><div class="grow ds">${n}</div>${stepper("cal-sum",x[key]||0,{step:1,min:0,max:200,idx:i,attr:`data-g="${key}"`})}</div>`).join("")+`</div>`; }).join("");
   const html=`<h2>Zrobione! 💪</h2><div class="sub">${esc(calName())} · ${fmt(secs)} · ${n} ${plural(n,"seria","serie","serii")} · ${reps} powt.</div>
     <div class="h2">Powtórzenia w seriach</div>${rows||`<div class="empty">Brak zaliczonych serii.</div>`}
     <div class="stat" style="margin-top:14px"><div><b>${reps}</b><span>powtórzeń</span></div><div><b>${n}</b><span>${plural(n,"seria","serie","serii")}</span></div><div><b>${fmt(secs)}</b><span>czas</span></div></div>
+    ${n?`<div class="sub" style="margin-top:8px">Razem: ${calTotalsHtml()}</div>`:""}
     <div class="stack"><button class="btn" data-act="cal-save" ${n?"":"disabled"}>Zapisz w dzienniku</button><button class="btn secondary" data-act="cal-save-garmin" ${n?"":"disabled"}>Zapisz i wyślij do Garmin</button><button class="btn secondary" data-act="cal-skip">Nie zapisuj</button></div>`;
   const sc=$("sheet").scrollTop; openModal(html,true); $("sheet").scrollTop=sc;
 }
@@ -935,7 +950,7 @@ function calEntry(){
   const c=CAL, reps=calTotals();
   return { id:Date.now(), date:c.startedAt||new Date().toISOString(), kind:"cal", setId:null, name:calName(), rounds:c.sets.length, roundsDone:c.sets.length,
     minutes:Math.round(c.elapsed/60), seconds:Math.floor(c.elapsed), kg:0, complete:true, reps, volume:0,
-    sets:c.sets.map(x=>({ex:x.ex,name:CAL_EX[x.ex].name,reps:x.reps,dur:x.dur,rest:x.rest})) };
+    sets:c.sets.map(x=>{ const o={ex:x.ex,name:CAL_EX[x.ex].name,reps:x.reps,dur:x.dur,rest:x.rest}; (gripsOf(x.ex)||[]).forEach(([k])=>{ o[k]=x[k]||0; }); return o; }) };
 }
 function calSave(){ DB.log.unshift(calEntry()); save(); const id=DB.log[0].id; calLeave(); toast("Zapisano w dzienniku"); return id; }
 
@@ -1137,8 +1152,8 @@ const FIELD={
   "c-kg":inp=>{ C.kg=num(inp); renderCreatorParts(); },
   "c-item":inp=>{ const it=C.items[+inp.dataset.idx]; const v=num(inp); if(it.work!=null) it.work=v; else { it.reps=v; it.range=null; } renderCreatorParts(); },
   "sum-kg":inp=>{ SUM.kg=num(inp); renderSummary(); },
-  "cal-reps":inp=>{ const k=CAL?CAL.sets.length:0; if(k) CAL.sets[k-1].reps=num(inp); if(CAL) renderCal(); },
-  "cal-sum":inp=>{ CAL.sets[+inp.dataset.idx].reps=num(inp); renderCalSummary(); },
+  "cal-reps":inp=>{ const k=CAL?CAL.sets.length:0; if(k) setReps(CAL.sets[k-1],inp.dataset.g,num(inp)); if(CAL) renderCal(); },
+  "cal-sum":inp=>{ setReps(CAL.sets[+inp.dataset.idx],inp.dataset.g,num(inp)); renderCalSummary(); },
   "bell":inp=>{ DB.bells=DB.bells||[8,10,20]; DB.bells[+inp.dataset.idx]=num(inp); save(); tilesKey=""; if(view.screen==="detail") renderDetail(); },
   "sum-reps":inp=>{ SUM.reps[inp.dataset.idx]=num(inp); renderSummary(); },
 };
