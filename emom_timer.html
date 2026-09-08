@@ -127,7 +127,11 @@
   #app header b,#capp header b{color:var(--ink);font-weight:600}
   #app header .grow,#capp header .grow{text-align:center}
   #app header .back,#capp header .back{width:44px;height:44px;font-size:26px;margin-left:-8px}
-  .clock.wide span{font-size:min(27vw,170px);letter-spacing:-.03em}
+  #capp{overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .clock.wide{flex:0 0 auto;min-height:auto;margin:6px 0}
+  .clock.wide span{font-size:min(22vw,140px);letter-spacing:-.03em}
+  #cal-sets{font-size:14px;margin-top:10px;padding-top:8px}
+  #cal-phase{margin-top:2px}
   .clock.rest span{color:var(--rest)}
   #cal-ex{margin-top:8px;padding-bottom:4px}
   #cal-ex .chip{min-height:40px;font-size:14px}
@@ -238,7 +242,7 @@
       <button id="cal-main" class="btn" data-act="cal-main">Start</button>
       <button id="cal-end" class="btn secondary" data-act="cal-end">Wróć</button>
     </div>
-    <div class="hint">Serie bez limitu czasu. Stoper mierzy cały trening, „Koniec serii” włącza zegar przerwy, „Start serii” zaczyna kolejną. Pik-pik, gdy minie cel przerwy.</div>
+    <div class="hint" id="cal-hint">Serie bez limitu czasu. Stoper mierzy cały trening, „Koniec serii” włącza zegar przerwy, „Start serii” zaczyna kolejną. Pik-pik, gdy minie cel przerwy.</div>
   </main>
 </section>
 
@@ -891,22 +895,20 @@ function renderCal(){
   const mixed=new Set(c.sets.map(x=>x.ex)).size>1;
   $("cal-sets").innerHTML=k?`Serie: ${c.sets.map(x=>setLabel(x,false)+(mixed?` <span class="ds">${CAL_EX[x.ex].name.toLowerCase()}</span>`:"")).join(" · ")}<br>Razem: ${calTotalsHtml()} = <b>${calTotals()} powt.</b>`:"Jeszcze bez serii.";
   const tiles=$("cal-tiles"); tiles.innerHTML=CAL_RESTS.map(v=>`<button class="tile${v===calRest()?" on":""}" data-act="cal-rest" data-t="${v}">${v} s</button>`).join("");
-  clock.classList.remove("warn","rest");
+  clock.classList.remove("warn","rest"); $("cal-hint").hidden=c.state!=="idle"; $("cal-phase").hidden=c.state!=="idle";
   if(c.state==="idle"){
     $("cal-serie").innerHTML="Seria <b>–</b>"; $("cal-mode").textContent="Kalistenika · serie i powtórzenia"; $("cal-sec").textContent="0:00";
     $("cal-phase").textContent="Start uruchamia stoper. Po każdej serii naciśnij „Koniec serii”.";
     $("cal-reps").hidden=true; tiles.hidden=false; $("cal-main").textContent="Start"; $("cal-end").textContent="Wróć"; fill.style.height="0%"; return;
   }
   if(c.state==="set"){
-    $("cal-serie").innerHTML=`Seria <b>${k+1}</b>`; $("cal-mode").textContent=`Seria ${k+1} w toku`; $("cal-sec").textContent=fmt(c.elapsed);
-    $("cal-phase").textContent="Rób powtórzenia – liczy się ich liczba, nie czas";
+    $("cal-serie").innerHTML=`Seria <b>${k+1}</b>`; $("cal-mode").textContent=`Seria ${k+1} w toku – liczą się powtórzenia`; $("cal-sec").textContent=fmt(c.elapsed);
     $("cal-reps").hidden=true; tiles.hidden=true; $("cal-main").textContent="Koniec serii"; $("cal-end").textContent="Zakończ"; fill.style.height="0%"; return;
   }
   if(c.state==="rest"){
     const r=c.elapsed-c.restStart, t=calRest(), over=r>=t;
-    $("cal-serie").innerHTML=`Seria <b>${k}</b>`; $("cal-mode").textContent=over?"Przerwa minęła":"Przerwa"; $("cal-sec").textContent=fmt(r);
+    $("cal-serie").innerHTML=`Seria <b>${k}</b>`; $("cal-mode").textContent=over?"Przerwa minęła – Start serii, gdy gotowy":`Przerwa · cel ${t} s`; $("cal-sec").textContent=fmt(r);
     clock.classList.add(over?"warn":"rest");
-    $("cal-phase").textContent=over?"Start serii, gdy będziesz gotowy":`Wpisz powtórzenia serii ${k} · cel przerwy ${t} s`;
     const st=c.sets[k-1], key=`${k}|${st.ex}`; const box=$("cal-reps"); box.hidden=false;
     if(c.repsKey!==key){ c.repsKey=key; box.innerHTML=repsPanelHtml(st,k); }
     box.querySelectorAll("input").forEach(inp=>{ if(document.activeElement!==inp){ const g=inp.dataset.g; inp.value=g==="all"?st.reps:(st[g]||0); } });
