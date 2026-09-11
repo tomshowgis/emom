@@ -273,6 +273,7 @@ const VIDEOS = {
   "h6xk6K1ff00":{t:"10 kettlebell abs exercises",ch:"Vadim Kettlebell"},
   "p5dB_vxmeUY":{t:"15 Minute Upper Body Kettlebell Workout",ch:"Kingdom Kettlebells"},
   "2npL1J0Y6cA":{t:"Trening całego brzucha w domu bez sprzętu w 5 min",ch:"Nasri"},
+  "rzTj7omKIR4":{t:"5-Minute Morning Kettlebell Routine",ch:"Vadim Kettlebell"},
   "XuvxplfUF-4":{t:"Brutally Effective Beginner Kettlebell Complex – Full Body",ch:"FitDad"},
 };
 const TAGS = ["biceps","triceps","barki","klatka","plecy","brzuch","nogi","pośladki","cardio"];
@@ -323,6 +324,8 @@ const EXERCISES = [
   {id:"goblet-squat",name:"Goblet Squat",desc:"Przysiad z kettlem przy klatce; klatka wysoko, kolana na zewnątrz.",reps:10,range:"10–12",tags:["nogi","pośladki"],src:"2jyYS8B0TK8"},
   {id:"split-stance-lunge",name:"Split-Stance Lunge",desc:"Wykrok w rozkroku z kettlem trzymanym jak walizka, po 5 na stronę.",reps:10,tags:["nogi","pośladki"],src:"2jyYS8B0TK8"},
   {id:"curl-press",name:"Curl + Press",desc:"Uginanie ramion, a potem wyciśnięcie nad głowę; kontrolowany powrót.",reps:6,range:"6–8",tags:["biceps","barki"],src:"2jyYS8B0TK8"},
+  {id:"around-the-world",name:"Around The World",desc:"Przekładanie kettla wokół tułowia w staniu, płynnie, zmiana kierunku co kilka powtórzeń.",work:30,tags:["brzuch","barki"],src:"rzTj7omKIR4"},
+  {id:"swing-clean",name:"Swing Clean",desc:"Wymach przechodzący w zarzut kettla na bark i kontrolowany zrzut do kolejnego wymachu.",work:30,tags:["nogi","plecy","barki","cardio"],src:"rzTj7omKIR4"},
   {id:"leg-raise",name:"Leg Raise",desc:"Wznosy nóg: leżąc na plecach unosisz proste nogi do pionu i opuszczasz powoli, lędźwie przy podłodze.",work:30,bw:true,tags:["brzuch"],src:"2npL1J0Y6cA"},
   {id:"russian-twist",name:"Russian Twist",desc:"Skręty: siedząc z uniesionymi stopami skręcasz tułów w lewo i w prawo – mięśnie skośne.",work:30,bw:true,tags:["brzuch"],src:"2npL1J0Y6cA"},
   {id:"crunch",name:"Crunch",desc:"Spięcia: unosisz łopatki spinając brzuch, bez ciągnięcia za kark – mięsień prosty brzucha.",work:30,bw:true,tags:["brzuch"],src:"2npL1J0Y6cA"},
@@ -364,6 +367,9 @@ const PRESETS = [
     I("bent-row-alt",18,"16–20"),I("overhead-march",null,null,{work:45})]},
   {id:"p-highpull10",name:"High Pull Complex 10",focus:"nogi + barki · kompleks",src:"l09btQuJM5s",rounds:10,items:[
     I("high-pull-complex",16,"4+4+4+4")]},
+  {id:"p-morning5",name:"Poranna rutyna 5 min",focus:"mobilność + pompa · 10 × 30 s bez przerwy (lekki kettel)",src:"rzTj7omKIR4",rounds:1,slot:30,items:[
+    I("around-the-world",null,null,{work:30}),I("upright-row",null,null,{work:30}),I("halo",null,null,{work:30}),I("front-to-back",null,null,{work:30}),I("russian-swing",null,null,{work:30}),
+    I("romanian-deadlift",null,null,{work:30}),I("swing-clean",null,null,{work:30}),I("goblet-back-lunge-alt",null,null,{work:30}),I("goblet-shoulder-press",null,null,{work:30}),I("squatted-curl",null,null,{work:30})]},
   /* zestawy autorskie zbudowane z biblioteki */
   {id:"a-legs",name:"Nogi & pośladki",focus:"nogi + pośladki",src:null,rounds:5,items:[
     I("goblet-squat",12),I("goblet-back-lunge-alt",14),I("romanian-deadlift",16),I("russian-swing",20)]},
@@ -395,7 +401,7 @@ const nf=n=>Math.round(n).toLocaleString("pl-PL");
 function plural(n,one,few,many){ n=Math.abs(n); if(n===1) return one; const r=n%10, h=n%100; return (r>=2&&r<=4&&!(h>=12&&h<=14))?few:many; }
 const exWord=n=>`${n} ${plural(n,"ćwiczenie","ćwiczenia","ćwiczeń")}`;
 const rdWord=n=>`${n} ${plural(n,"runda","rundy","rund")}`;
-const setMeta=(len,rounds)=>`${exWord(len)} × ${rdWord(rounds)} · ${len*rounds} min`;
+const setMeta=(len,rounds,slot)=>{ slot=slot||60; const min=Math.round(len*rounds*slot/60*10)/10; return `${exWord(len)} × ${rdWord(rounds)} · ${min} min${slot!==60?` · bloki ${slot} s`:""}`; };
 function when(iso){
   const d=new Date(iso), t=new Date(); const dd=Math.round((new Date(t.getFullYear(),t.getMonth(),t.getDate())-new Date(d.getFullYear(),d.getMonth(),d.getDate()))/864e5);
   if(dd===0) return "dziś"; if(dd===1) return "wczoraj";
@@ -426,7 +432,7 @@ function resolveItem(it){ const ex=EXMAP[it.id]; return { id:it.id, name:ex.name
   work:it.work==null?null:it.work, rest:!!ex.rest, bw:!!ex.bw, label:itemLabel(it), src:ex.src||null }; }
 function buildPlan(s,e){
   const items=e.items.map(resolveItem);
-  return { setId:s.id||null, name:s.name, rounds:e.rounds, kg:e.kg, src:s.src||null, items, segs:[{items,rounds:e.rounds,label:null}] };
+  return { setId:s.id||null, name:s.name, rounds:e.rounds, kg:e.kg, src:s.src||null, slot:s.slot||60, items, segs:[{items,rounds:e.rounds,label:null}] };
 }
 /* Trening = segmenty: [0] set bazowy, dalej dogrywki. cut = ile minut segmentu faktycznie zaliczono (po przerwaniu).
    seqOf zamienia segmenty na płaską listę minut; slot identyfikuje ćwiczenie w segmencie (do edycji powtórzeń). */
@@ -441,7 +447,7 @@ function makeEntry(p,repsOf,mins,secs,complete,dateIso,kgOf){
   const segs=p.segs.map((sg,si)=>({label:sg.label||null,rounds:sg.rounds,cut:sg.cut==null?null:sg.cut,
     items:sg.items.map((it,i)=>({id:it.id,name:it.name,side:it.side||null,reps:it.rest?null:repsOf(`${si}:${i}`,it),work:it.work==null?null:it.work,bw:!!it.bw,rest:!!it.rest,kg:(it.rest||it.bw)?null:kgOf(`${si}:${i}`)}))}));
   return { id:Date.now(), date:dateIso, setId:p.setId||null, name:p.name, rounds:base.rounds, roundsDone:Math.round(baseMin/baseLen*10)/10,
-    minutes:mins, seconds:secs, kg:p.kg, complete, reps, volume:vol, segs, items:segs[0].items };
+    minutes:mins, seconds:secs, kg:p.kg, complete, reps, volume:vol, slot:p.slot||60, segs, items:segs[0].items };
 }
 function stepper(field,value,o){
   o=o||{}; const idx=o.idx==null?"":` data-idx="${o.idx}"`;
@@ -501,7 +507,7 @@ function setCard(s){
   const e=effective(s), tags=setTags(s).slice(0,5);
   return `<div class="card tap" data-act="open-set" data-id="${s.id}"><div class="row"><div class="grow">
     <h3>${esc(s.name)}</h3>${s.focus?`<div class="sub">${esc(s.focus)}</div>`:""}
-    <div class="sub">${setMeta(s.items.length,e.rounds)}</div>
+    <div class="sub">${setMeta(s.items.length,e.rounds,s.slot)}</div>
     <div class="chips">${tags.map(t=>`<span class="chip">${t}</span>`).join("")}</div></div>
     ${s.src?`<button class="play" data-act="video" data-vid="${s.src}" aria-label="Film">▶</button>`:""}</div></div>`;
 }
@@ -509,7 +515,7 @@ function renderHome(){
   let h="";
   if(DB.last){ const p=DB.last.plan;
     h+=`<div class="h2">Ostatni trening</div><div class="card tap" data-act="last-open"><div class="row"><div class="grow">
-      <h3>${esc(p.name)}</h3><div class="sub">${setMeta(p.items.length,p.rounds)} · ${p.kg} kg · ${when(DB.last.at)}</div></div>
+      <h3>${esc(p.name)}</h3><div class="sub">${setMeta(p.items.length,p.rounds,p.slot)} · ${p.kg} kg · ${when(DB.last.at)}</div></div>
       <button class="btn small" data-act="last-start">Start</button></div></div>`; }
   if(DB.custom.length) h+=`<div class="h2">Moje sety</div>`+DB.custom.map(setCard).join("");
   h+=`<div class="h2">Sety z filmów</div>`+PRESETS.filter(s=>s.src).map(setCard).join("");
@@ -526,10 +532,10 @@ function renderHome(){
 /* =====================================================================
    SZCZEGÓŁY SETU
    ===================================================================== */
-function exRow(it,i,field,extra,setSrc){
+function exRow(it,i,field,extra,setSrc,slot){
   const ex=EXMAP[it.id]; if(!ex) return "";
-  const showVid=ex.src&&ex.src!==setSrc;
-  const ctrl=ex.rest?"":(it.work!=null?stepper(field,it.work,{unit:"s",step:5,min:10,max:60,idx:i}):stepper(field,it.reps,{step:1,min:1,max:100,idx:i}));
+  const showVid=ex.src&&ex.src!==setSrc; slot=slot||60;
+  const ctrl=ex.rest?"":(it.work!=null?stepper(field,Math.min(it.work,slot),{unit:"s",step:5,min:10,max:slot,idx:i}):stepper(field,it.reps,{step:1,min:1,max:100,idx:i}));
   return `<div class="exrow"><div class="row"><div class="num">${i+1}</div><div class="grow"><div class="nm">${esc(ex.name)}${it.side?` <span class="side">${it.side==="L"?"lewa":"prawa"}</span>`:""}</div><div class="ds">${esc(itemLabel(it))}</div></div>
     ${showVid?`<button class="play" data-act="video" data-vid="${ex.src}" aria-label="Film">▶</button>`:""}</div>
     <div class="ds" style="margin-top:6px">${esc(ex.desc)}</div>
@@ -537,7 +543,7 @@ function exRow(it,i,field,extra,setSrc){
 }
 function renderDetail(){
   const s=getSet(view.setId); if(!s){ goHome(); return; }
-  const e=effective(s), total=s.items.length*e.rounds, v=planVolume(e.items,e.rounds,e.kg);
+  const e=effective(s), slot=s.slot||60, total=Math.round(s.items.length*e.rounds*slot/60*10)/10, v=planVolume(e.items,e.rounds,e.kg);
   $("d-title").textContent=s.name;
   let h=`<div class="card">`;
   if(s.src){ const vd=VIDEOS[s.src]||{t:"Film",ch:""}; h+=`<div class="row"><div class="grow"><div class="sub">Źródło: ${esc(vd.ch)}</div><div class="nm">${esc(vd.t)}</div></div><button class="play" data-act="video" data-vid="${s.src}" aria-label="Film">▶</button></div>`; }
@@ -547,7 +553,7 @@ function renderDetail(){
   h+=`<div class="card"><div class="row"><div class="grow"><div class="nm">Rundy</div><div class="sub">${exWord(s.items.length)} × ${e.rounds} = <b>${total} min</b></div></div>${stepper("d-rounds",e.rounds,{step:1,min:1,max:12})}</div>
     <div class="row" style="margin-top:12px"><div class="grow"><div class="nm">Kettlebell</div><div class="sub">plan: ${nf(v.reps)} powt. · ok. ${nf(v.vol)} kg</div></div>${stepper("d-kg",e.kg,{unit:"kg",step:2,min:0,max:60})}</div>
     <div class="sub" style="margin-top:10px">Kafle na timerze: <b>${(DB.bells||[]).join(" · ")} kg</b> <button class="kgchip" data-act="bells">zmień</button></div></div>`;
-  h+=`<div class="h2">Ćwiczenia – jedno na minutę</div><div class="card">`+e.items.map((it,i)=>exRow(it,i,"d-item",null,s.src||null)).join("")+`</div>`;
+  h+=`<div class="h2">Ćwiczenia – jedno na ${slot===60?"minutę":`blok ${slot} s`}</div><div class="card">`+e.items.map((it,i)=>exRow(it,i,"d-item",null,s.src||null,slot)).join("")+`</div>`;
   if(!s.custom&&DB.prefs[s.id]) h+=`<button class="btn secondary w100" data-act="d-reset">Przywróć domyślne</button>`;
   if(s.custom) h+=`<button class="btn danger w100" style="margin-top:10px" data-act="d-delete">Usuń set</button>`;
   const sc=$("detail").scrollTop; $("detail").innerHTML=h; $("detail").scrollTop=sc;
@@ -639,7 +645,7 @@ function renderLog(){
       h+=`<div class="row" style="margin-top:8px"><button class="btn secondary small grow" data-act="garmin" data-id="${e.id}">Wyślij do Garmin (FIT)</button><button class="btn danger small" data-act="log-delete" data-id="${e.id}">Usuń</button></div></div>`; }
     else if(open){ h+=`<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">`;
       const exMin=entrySeq(e).filter(it=>it.seg>0).length;
-      h+=`<div class="ds">${rdWord(e.rounds)} planowane · zaliczone ${e.roundsDone} · ${e.minutes} min pracy${exMin?` (w tym dogrywka ${exMin} min)`:""}</div>`;
+      h+=`<div class="ds">${rdWord(e.rounds)} planowane · zaliczone ${e.roundsDone} · ${(e.slot||60)===60?`${e.minutes} min pracy`:`${e.minutes} ${plural(e.minutes,"blok","bloki","bloków")} × ${e.slot} s`}${exMin?` (w tym dogrywka ${exMin})`:""}</div>`;
       entrySegs(e).forEach((sg,si)=>{ if(si>0) h+=`<div class="ds" style="margin-top:8px;color:var(--work);font-weight:700">${esc(sg.label||"Dogrywka")} · ${rdWord(sg.rounds)}</div>`;
         sg.items.forEach(it=>{ if(it.rest) return; h+=`<div class="row" style="padding:6px 0"><div class="grow nm" style="font-size:15px">${esc(it.name)}${it.side?` <span class="side">${it.side==="L"?"lewa":"prawa"}</span>`:""}</div><div class="ds">${it.reps!=null?`${it.reps} powt./min`:(it.work!=null?`${it.work} s`:"")}${it.bw?" · bez kettla":(it.kg!=null&&it.kg!==e.kg?` · ${it.kg} kg`:"")}</div></div>`; }); });
       h+=`<div class="row" style="margin-top:8px"><button class="btn secondary small grow" data-act="garmin" data-id="${e.id}">Wyślij do Garmin (FIT)</button><button class="btn danger small" data-act="log-delete" data-id="${e.id}">Usuń</button></div></div>`; }
@@ -655,7 +661,8 @@ function renderLog(){
 const PREP=10;
 let plan=null, planBase=null, state="idle", elapsed=0, prepEnd=0, lastTick=0, raf=null, lastWhole=null, audio=null, wakeLock=null, startedAt=null;
 const N=()=>plan.seq.length;
-const doneMinutes=()=>Math.min(N(),Math.floor(Math.max(elapsed,prepEnd)/60));
+const SL=()=>plan.slot||60; // długość bloku w sekundach (EMOM: 60, rutyny: np. 30)
+const doneMinutes=()=>Math.min(N(),Math.floor(Math.max(elapsed,prepEnd)/SL()));
 const extraMinutes=seq=>seq.filter(it=>it.seg>0).length;
 
 function beep(freq=880,ms=120,gain=.4){
@@ -702,7 +709,7 @@ function roundLabel(it){
 function currentItem(){
   if(!plan||state==="done") return null;
   const seq=plan.seq; if(state==="idle") return seq[0];
-  const idx=elapsed<prepEnd?Math.round(prepEnd/60):Math.floor(elapsed/60);
+  const idx=elapsed<prepEnd?Math.round(prepEnd/SL()):Math.floor(elapsed/SL());
   return seq[Math.min(seq.length-1,idx)];
 }
 function currentVideo(){ const it=currentItem(); return {vid:(it&&it.src)||plan.src||null, ex:it&&it.src?it.name:null}; }
@@ -720,7 +727,7 @@ function renderTiles(){
 }
 function renderTimer(){
   if(!plan) return;
-  const fill=$("fill"), clock=$("clock"), seq=plan.seq, n=N(), total=n*60, base=plan.segs[0];
+  const fill=$("fill"), clock=$("clock"), seq=plan.seq, n=N(), sl=SL(), total=n*sl, base=plan.segs[0];
   $("t-video").hidden=!currentVideo().vid; $("t-sound").hidden=state!=="idle"; renderTiles();
   if(state==="idle"){
     $("app").classList.remove("done"); fill.style.height="0%"; fill.style.background="var(--work)";
@@ -735,7 +742,7 @@ function renderTimer(){
     const ex=extraMinutes(seq);
     $("app").classList.add("done");
     $("minute").textContent="Koniec"; $("name").textContent="Zrobione";
-    $("reps").textContent=`${n} ${plural(n,"minuta","minuty","minut")} · ${rdWord(base.rounds)}`+(ex?` + dogrywka ${ex} min`:"");
+    $("reps").textContent=(sl===60?`${n} ${plural(n,"minuta","minuty","minut")}`:`${n} ${plural(n,"blok","bloki","bloków")} × ${sl} s`)+` · ${rdWord(base.rounds)}`+(ex?` + dogrywka ${ex}`:"");
     $("sec").textContent="0"; $("phase").textContent="";
     $("next").textContent="Rozciągnij się.";
     $("roundlbl").innerHTML=roundLabel(seq[n-1]); $("total").textContent="0:00";
@@ -743,29 +750,29 @@ function renderTimer(){
     $("main").textContent="Start"; return;
   }
   if(elapsed<prepEnd){ // przygotowanie (start albo dogrywka)
-    const left=prepEnd-elapsed, si=Math.min(n-1,Math.round(prepEnd/60)), first=seq[si], second=seq[si+1];
+    const left=prepEnd-elapsed, si=Math.min(n-1,Math.round(prepEnd/sl)), first=seq[si], second=seq[si+1];
     $("minute").textContent=prepEnd>0?(first.seg>0?"Dogrywka – przygotuj się":"Jeszcze runda – przygotuj się"):"Przygotuj się";
     $("name").textContent=sideName(first); $("reps").textContent=first.label;
     $("sec").textContent=Math.ceil(left);
     $("phase").textContent="Start za chwilę";
-    $("next").innerHTML=second?`Potem: ${nameHtml(second)}`:"Jedna minuta.";
+    $("next").innerHTML=second?`Potem: ${nameHtml(second)}`:(sl===60?"Jedna minuta.":"Jeden blok.");
     $("roundlbl").innerHTML=roundLabel(first); $("total").textContent=fmt(total-prepEnd);
     fill.style.height=`${(1-left/PREP)*100}%`; fill.style.background="var(--rest)";
     clock.classList.toggle("warn",left<=3); return;
   }
   const e=Math.floor(elapsed);
-  const idx=Math.min(n-1,Math.floor(e/60)), inMin=elapsed-idx*60, left=60-inMin;
+  const idx=Math.min(n-1,Math.floor(e/sl)), inMin=elapsed-idx*sl, left=sl-inMin;
   const it=seq[idx], nxt=seq[idx+1];
   $("roundlbl").innerHTML=roundLabel(it);
   $("total").textContent=fmt(Math.max(0,total-e));
-  $("minute").textContent=`Minuta ${idx+1} / ${n}`+(it.seg>0?" · dogrywka":"");
+  $("minute").textContent=`${sl===60?"Minuta":"Blok"} ${idx+1} / ${n}`+(sl!==60?` · ${sl} s`:"")+(it.seg>0?" · dogrywka":"");
   $("name").textContent=sideName(it); $("reps").textContent=it.label;
   $("sec").textContent=Math.ceil(left);
   const resting=it.rest||(it.work!=null&&inMin>=it.work);
   $("phase").textContent=it.rest?"Odpocznij – za chwilę dalej"
     :(resting?"Przerwa – zostań na nogach":(it.work!=null?`Ćwicz jeszcze ${Math.ceil(it.work-inMin)} s`:"Zrób powtórzenia, reszta to przerwa"));
-  $("next").innerHTML=nxt?`Następnie: ${nameHtml(nxt)}`:"Ostatnia minuta.";
-  fill.style.height=`${(inMin/60)*100}%`;
+  $("next").innerHTML=nxt?`Następnie: ${nameHtml(nxt)}`:(sl===60?"Ostatnia minuta.":"Ostatni blok.");
+  fill.style.height=`${(inMin/sl)*100}%`;
   fill.style.background=resting?"var(--rest)":"var(--work)";
   clock.classList.toggle("warn",left<=10);
 }
@@ -776,11 +783,11 @@ function tick(now){
   if(whole!==lastWhole){
     lastWhole=whole;
     if(elapsed>=prepEnd){
-      const inMin=whole%60, idx=Math.floor(whole/60);
-      if(whole>=N()*60){ state="done"; beepEnd(); renderTimer(); releaseWake(); setTimeout(stopSilent,1500); setTimeout(()=>openSummary(true),900); return; }
+      const sl=SL(), inMin=whole%sl, idx=Math.floor(whole/sl);
+      if(whole>=N()*sl){ state="done"; beepEnd(); renderTimer(); releaseWake(); setTimeout(stopSilent,1500); setTimeout(()=>openSummary(true),900); return; }
       if(inMin===0){ beepMinute(); state="run"; }
-      else if(inMin>=57) beepCount();
-      else if(inMin===50) beepDouble();
+      else if(inMin>=sl-3) beepCount();
+      else if(sl>=20&&inMin===sl-10) beepDouble();
       const it=plan.seq[idx];
       if(it&&!it.rest&&it.work!=null&&inMin===it.work) beep(440,250,.4);
     }else{ const left=prepEnd-elapsed; if(left<3.5&&Math.ceil(left)<=3) beepCount(); }
@@ -814,7 +821,7 @@ function truncatePlan(mins){
   plan.segs=plan.segs.filter((sg,si)=>{ const len=sg.items.length, tot=sg.cut!=null?sg.cut:len*sg.rounds; const keep=Math.max(0,Math.min(tot,mins-acc)); acc+=tot; sg.cut=keep; return si===0||keep>0; });
 }
 function continueTimer(startMin){
-  plan.seq=seqOf(plan.segs); prepEnd=startMin*60; elapsed=prepEnd-PREP; lastWhole=null; state="prep";
+  plan.seq=seqOf(plan.segs); prepEnd=startMin*SL(); elapsed=prepEnd-PREP; lastWhole=null; state="prep";
   closeModal(); $("app").classList.remove("done"); show("timer"); keepAwake();
   $("main").textContent="Pauza"; renderTimer(); unlockAudio(); beepDouble();
   lastTick=performance.now(); raf=requestAnimationFrame(tick);
@@ -832,7 +839,7 @@ $("reset").addEventListener("click",resetRun);
 /* ---- podsumowanie i zapis do dziennika ---- */
 let SUM=null;
 function openSummary(complete){
-  const n=N(), mins=complete?n:doneMinutes(), secs=complete?n*60:Math.floor(Math.max(elapsed,prepEnd));
+  const n=N(), mins=complete?n:doneMinutes(), secs=complete?n*SL():Math.floor(Math.max(elapsed,prepEnd));
   const reps={}; plan.seq.forEach(it=>{ if(!(it.slot in reps)) reps[it.slot]=(plan.repsEdit&&plan.repsEdit[it.slot]!=null)?plan.repsEdit[it.slot]:it.reps; });
   SUM={complete,mins,secs,kg:plan.kg,reps,kgSlot:Object.assign({},plan.kgSlot||{})};
   renderSummary();
@@ -846,9 +853,9 @@ function renderSummary(){
     sg.items.map((it,i)=>{ if(it.rest) return ""; const slot=`${si}:${i}`;
       return `<div class="exrow"><div class="row"><div class="grow"><div class="nm">${esc(it.name)}${it.side?` <span class="side">${it.side==="L"?"lewa":"prawa"}</span>`:""}</div><div class="ds">${esc(it.label)}${it.bw?" · bez kettla":` · <button class="kgchip" data-act="sum-kg-cycle" data-slot="${slot}" aria-label="Zmień ciężar">${sumKg(slot)} kg</button>`}</div></div>${it.reps==null?`<div class="ds">na czas</div>`:stepper("sum-reps",SUM.reps[slot],{step:1,min:0,max:200,idx:slot})}</div></div>`; }).join("")).join("");
   const html=`<h2>${SUM.complete?"Zrobione! 💪":"Trening przerwany"}</h2>
-    <div class="sub">${esc(plan.name)} · ${fmt(SUM.secs)} · ${SUM.mins} z ${N()} minut · ${rd} z ${base.rounds} rund${ex?` + dogrywka ${ex} min`:""}</div>
+    <div class="sub">${esc(plan.name)} · ${fmt(SUM.secs)} · ${SUM.mins} z ${N()} ${SL()===60?"minut":"bloków"} · ${rd} z ${base.rounds} rund${ex?` + dogrywka ${ex}`:""}</div>
     <div class="row" style="margin-top:14px"><div class="grow"><div class="nm">Kettlebell</div><div class="ds">domyślny; przy ćwiczeniu dotknij „kg”, by zmienić</div></div>${stepper("sum-kg",SUM.kg,{unit:"kg",step:2,min:0,max:60})}</div>
-    <div class="h2">Powtórzenia na minutę – popraw, jeśli było inaczej</div>${rows}
+    <div class="h2">Powtórzenia na ${SL()===60?"minutę":"blok"} – popraw, jeśli było inaczej</div>${rows}
     <div class="stat" style="margin-top:14px"><div><b>${nf(t.reps)}</b><span>powtórzeń</span></div><div><b>${nf(t.vol)}</b><span>kg przerzucone</span></div><div><b>${fmt(SUM.secs)}</b><span>czas</span></div></div>
     <div class="h2">Chcesz zrobić więcej?</div>
     <div class="row">${SUM.complete?`<button class="btn secondary small grow" data-act="sum-more-round">Jeszcze 1 runda</button>`:""}<button class="btn secondary small grow" data-act="sum-add-ex">${SUM.complete?"Dodaj ćwiczenia":"Dodaj ćwiczenia zamiast reszty"}</button></div>
@@ -865,7 +872,7 @@ function abortTimer(){
   if(state==="idle"||state==="done"){ leaveTimer(); return; }
   if(state!=="paused") pauseRun();
   const mins=doneMinutes();
-  openModal(`<h2>Przerwać trening?</h2><div class="sub">${mins>0?`Zaliczone minuty: ${mins} z ${N()}.`:"Jeszcze nic nie zaliczone."}</div>
+  openModal(`<h2>Przerwać trening?</h2><div class="sub">${mins>0?`Zaliczone ${SL()===60?"minuty":"bloki"}: ${mins} z ${N()}.`:"Jeszcze nic nie zaliczone."}</div>
     <div class="stack">${mins>0?`<button class="btn" data-act="abort-save">Zapisz częściowy</button>`:""}
     <button class="btn danger" data-act="abort-drop">Odrzuć i wyjdź</button>
     <button class="btn secondary" data-act="modal-close">Wróć do treningu</button></div>`);
@@ -980,7 +987,7 @@ const FIT_CAT={ "biceps-curl":7,"goblet-curl":7,"squatted-curl":7,"curl-press":7
   "overhead-march":3,"russian-swing":12,"alt-swing":12,"american-swing":12,"swing-clean-push-press":18,"dead-clean-push-press-alt":18,
   "goblet-clean-squat":28,"goblet-squat":28,"thruster":28,"bent-row-alt":23,"bent-over-row":23,"upright-row":23,"sumo-high-pull":23,"high-pull-alt":23,"high-pull-complex":29,
   "goblet-back-lunge-alt":17,"front-rack-lunge":17,"split-stance-lunge":17,"kneeling-goblet-press":24,"goblet-shoulder-press":24,"push-press":24,"front-to-back":24,
-  "leg-raise":16,"russian-twist":5,"crunch":6,"hollow-body":5,"romanian-deadlift":8,"burpee":29,"goblet-floor-press":0,"horizontal-press-twist":0,"pushup":22,"front-raise":14,"goblet-front-side-raise-alt":14 };
+  "around-the-world":5,"swing-clean":18,"leg-raise":16,"russian-twist":5,"crunch":6,"hollow-body":5,"romanian-deadlift":8,"burpee":29,"goblet-floor-press":0,"horizontal-press-twist":0,"pushup":22,"front-raise":14,"goblet-front-side-raise-alt":14 };
 function fitCrc(bytes,len){
   const T=[0x0000,0xCC01,0xD801,0x1400,0xF001,0x3C00,0x2800,0xE401,0xA001,0x6C00,0x7800,0xB401,0x5000,0x9C01,0x8801,0x4400]; let c=0;
   for(let i=0;i<len;i++){ const b=bytes[i]; let t=T[c&0xF]; c=(c>>4)&0x0FFF; c=c^t^T[b&0xF]; t=T[c&0xF]; c=(c>>4)&0x0FFF; c=c^t^T[(b>>4)&0xF]; }
@@ -1029,16 +1036,16 @@ function buildFit(e){
       lap(t,t+d+r); t+=d+r; });
     if(end>t) enc.msg(3,[end]);
   } else {
-    const seq=seqOf(entrySegs(e)), mins=Math.min(e.minutes||0,seq.length,Math.floor(total/60));
-    for(let m=0;m<mins;m++){ const it=seq[m]||{rest:true}, t0=start+m*60, kg=(it.kg!=null?it.kg:(e.kg||0));
-      if(it.rest){ set(t0,60,null); }
-      else if(it.work!=null&&it.work<60){ set(t0,it.work,it,kg); set(t0+it.work,60-it.work,null); }
-      else set(t0,60,it,kg);
-      enc.msg(3,[t0+60]); }
-    if(end>start+mins*60) enc.msg(3,[end]);
+    const sl=e.slot||60, seq=seqOf(entrySegs(e)), mins=Math.min(e.minutes||0,seq.length,Math.floor(total/sl));
+    for(let m=0;m<mins;m++){ const it=seq[m]||{rest:true}, t0=start+m*sl, kg=(it.kg!=null?it.kg:(e.kg||0));
+      if(it.rest){ set(t0,sl,null); }
+      else if(it.work!=null&&it.work<sl){ set(t0,it.work,it,kg); set(t0+it.work,sl-it.work,null); }
+      else set(t0,sl,it,kg);
+      enc.msg(3,[t0+sl]); }
+    if(end>start+mins*sl) enc.msg(3,[end]);
     let lapStart=0;
     for(let m=1;m<=mins;m++){ const cur=seq[m-1], nxt=seq[m]; const brk=(m===mins)||!nxt||nxt.seg!==cur.seg||nxt.round!==cur.round;
-      if(brk){ lap(start+lapStart*60,(m===mins)?end:start+m*60); lapStart=m; } }
+      if(brk){ lap(start+lapStart*sl,(m===mins)?end:start+m*sl); lapStart=m; } }
   }
   if(!laps) lap(start,end);
   enc.msg(2,[end,0,4,0]);                                                    // event: stop_all
@@ -1086,7 +1093,7 @@ function openBells(){
 /* ---- przykładowy ukończony trening (do testu dziennika i eksportu FIT) ---- */
 function addSampleLog(){
   const s=getSet("p-biceps-abs"); const p=buildPlan(s,effective(s)); const n=p.items.length*p.rounds;
-  const en=makeEntry(p,(slot,it)=>it.reps,n,n*60,true,new Date(Date.now()-90*60e3).toISOString()); en.name+=" (przykład)";
+  const en=makeEntry(p,(slot,it)=>it.reps,n,n*(p.slot||60),true,new Date(Date.now()-90*60e3).toISOString()); en.name+=" (przykład)";
   DB.log.unshift(en); save();
 }
 
