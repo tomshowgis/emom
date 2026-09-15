@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#161a22">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="EMOM">
 <title>EMOM – skarbnica treningów</title>
 <style>
   :root{
@@ -251,6 +257,7 @@
   </main>
 </section>
 
+<input type="file" id="bk-file" accept=".json,application/json" hidden>
 <div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
 <div class="toast" id="toast"></div>
 
@@ -650,6 +657,8 @@ function renderLog(){
         sg.items.forEach(it=>{ if(it.rest) return; h+=`<div class="row" style="padding:6px 0"><div class="grow nm" style="font-size:15px">${esc(it.name)}${it.side?` <span class="side">${it.side==="L"?"lewa":"prawa"}</span>`:""}</div><div class="ds">${it.reps!=null?`${it.reps} powt./min`:(it.work!=null?`${it.work} s`:"")}${it.bw?" · bez kettla":(it.kg!=null&&it.kg!==e.kg?` · ${it.kg} kg`:"")}</div></div>`; }); });
       h+=`<div class="row" style="margin-top:8px"><button class="btn secondary small grow" data-act="garmin" data-id="${e.id}">Wyślij do Garmin (FIT)</button><button class="btn danger small" data-act="log-delete" data-id="${e.id}">Usuń</button></div></div>`; }
     h+=`</div>`; });
+  h+=`<div class="h2">Kopia zapasowa</div><div class="card"><div class="sub">Dziennik, własne sety i ustawienia są zapisane tylko w tej przeglądarce lub aplikacji na ekranie początkowym. Zrób kopię przed usunięciem aplikacji z ekranu, zmianą telefonu lub czyszczeniem danych.</div>
+    <div class="row" style="margin-top:12px"><button class="btn secondary small grow" data-act="bk-export">Eksportuj kopię</button><button class="btn secondary small grow" data-act="bk-import">Importuj kopię</button></div></div>`;
   const sc=$("log").scrollTop; $("log").innerHTML=h; $("log").scrollTop=sc;
 }
 
@@ -976,6 +985,57 @@ function calEntry(){
 function calSave(){ DB.log.unshift(calEntry()); save(); const id=DB.log[0].id; calLeave(); toast("Zapisano w dzienniku"); return id; }
 
 /* =====================================================================
+   PLIKI: udostępnianie/pobieranie + KOPIA ZAPASOWA (JSON całej bazy)
+   ===================================================================== */
+async function deliverFile(content,name,type,okMsg){
+  let file=null; try{ file=new File([content],name,{type}); }catch(err){}
+  if(file&&navigator.canShare&&navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file],title:name}); toast(okMsg||"Udostępniono"); return; }catch(err){ if(err&&err.name==="AbortError") return; }
+  }
+  const blob=file||new Blob([content],{type}); const url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),10000); toast(okMsg||"Pobrano plik");
+}
+function exportBackup(){
+  const d=new Date(), z=n=>String(n).padStart(2,"0");
+  const name=`emom-kopia-${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}.json`;
+  deliverFile(JSON.stringify({app:"emom",v:2,exported:d.toISOString(),data:DB},null,1),name,"application/json","Kopia zapisana");
+}
+function parseBackup(text){
+  let o; try{ o=JSON.parse(text); }catch(e){ return null; }
+  const data=(o&&o.app==="emom"&&o.data)?o.data:o;
+  if(!data||data.v!==2||!Array.isArray(data.log)) return null;
+  return data;
+}
+let BK=null;
+function previewBackup(data){
+  BK=data; const cnt=(arr)=>Array.isArray(arr)?arr.length:0;
+  const newLog=data.log.filter(e=>!DB.log.some(x=>x.id===e.id)).length, newSets=(data.custom||[]).filter(s=>!DB.custom.some(x=>x.id===s.id)).length;
+  openModal(`<h2>Importuj kopię</h2>
+    <div class="sub">W pliku: ${cnt(data.log)} ${plural(cnt(data.log),"trening","treningi","treningów")}, ${cnt(data.custom)} ${plural(cnt(data.custom),"własny set","własne sety","własnych setów")}.<br>W aplikacji: ${DB.log.length} ${plural(DB.log.length,"trening","treningi","treningów")}, ${DB.custom.length} ${plural(DB.custom.length,"własny set","własne sety","własnych setów")}.</div>
+    <div class="stack"><button class="btn" data-act="bk-merge">Scal – dodaj brakujące (${newLog} tren., ${newSets} set.)</button>
+    <button class="btn danger" data-act="bk-replace">Zastąp wszystko danymi z pliku</button>
+    <button class="btn secondary" data-act="modal-close">Anuluj</button></div>`);
+}
+function applyBackup(mode){
+  const data=BK; if(!data) return;
+  if(mode==="replace"){ const m=Object.assign(DEFAULT_DB(),data); if(!data.bellsV2){ m.bells=[8,10,12,16,20]; m.bellsV2=true; } DB=m; }
+  else {
+    data.log.forEach(e=>{ if(!DB.log.some(x=>x.id===e.id)) DB.log.push(e); });
+    DB.log.sort((a,b)=>new Date(b.date)-new Date(a.date));
+    (data.custom||[]).forEach(s=>{ if(!DB.custom.some(x=>x.id===s.id)) DB.custom.push(s); });
+    Object.keys(data.prefs||{}).forEach(k=>{ if(!DB.prefs[k]) DB.prefs[k]=data.prefs[k]; });
+    if(!DB.last&&data.last) DB.last=data.last;
+  }
+  save(); BK=null; closeModal(); LOG.open=null; renderLog(); toast(mode==="replace"?"Dane zastąpione kopią":"Kopia scalona");
+}
+$("bk-file").addEventListener("change",e=>{
+  const f=e.target.files&&e.target.files[0]; e.target.value=""; if(!f) return;
+  const r=new FileReader(); r.onload=()=>{ const data=parseBackup(String(r.result)); if(!data){ openModal(`<h2>To nie jest kopia EMOM</h2><div class="sub">Wybierz plik JSON wyeksportowany z tej aplikacji.</div><div class="stack"><button class="btn secondary" data-act="modal-close">Zamknij</button></div>`); return; } previewBackup(data); };
+  r.readAsText(f);
+});
+
+/* =====================================================================
    EKSPORT FIT (Garmin Connect → Importuj dane)
    Garmin nie udostępnia prywatnym osobom API do zapisu, więc trening wychodzi jako plik .FIT
    (aktywność „Siła” z seriami: powtórzenia, ciężar, kategoria ćwiczenia). Koder pisze minimalny,
@@ -1060,14 +1120,7 @@ function buildFit(e){
 function fitFileName(e){ const d=new Date(e.date), z=n=>String(n).padStart(2,"0"); return `EMOM_${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}.fit`; }
 async function exportFit(id){
   const e=DB.log.find(x=>x.id===id); if(!e) return;
-  const bytes=buildFit(e), name=fitFileName(e);
-  let file=null; try{ file=new File([bytes],name,{type:"application/octet-stream"}); }catch(err){}
-  if(file&&navigator.canShare&&navigator.canShare({files:[file]})){
-    try{ await navigator.share({files:[file],title:name}); toast("Plik FIT udostępniony"); return; }catch(err){ if(err&&err.name==="AbortError") return; }
-  }
-  const blob=file||new Blob([bytes],{type:"application/octet-stream"}); const url=URL.createObjectURL(blob);
-  const a=document.createElement("a"); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),10000); toast("Plik FIT pobrany");
+  await deliverFile(buildFit(e),fitFileName(e),"application/octet-stream","Plik FIT gotowy");
 }
 function openGarmin(id){
   const e=DB.log.find(x=>x.id===id); if(!e) return;
@@ -1130,6 +1183,10 @@ const ACT={
   "log-day":d=>{ LOG.sel=LOG.sel===d.key?null:d.key; renderLog(); },
   "log-open":d=>{ LOG.open=LOG.open===+d.id?null:+d.id; renderLog(); },
   "log-delete":d=>{ DB.log=DB.log.filter(e=>e.id!==+d.id); LOG.open=null; save(); renderLog(); toast("Wpis usunięty"); },
+  "bk-export":()=>exportBackup(),
+  "bk-import":()=>$("bk-file").click(),
+  "bk-merge":()=>applyBackup("merge"),
+  "bk-replace":()=>applyBackup("replace"),
   "toggle-videos":()=>{ DB.ui=DB.ui||{}; DB.ui.videos=!DB.ui.videos; save(); renderHome(); },
   "open-cal":d=>goCal(d.ex),
   "cal-ex":d=>{ if(!CAL) return; CAL.ex=d.ex; if(CAL.state==="rest"){ const st=CAL.sets[CAL.sets.length-1]; if(st.ex!==d.ex){ switchSetEx(st,d.ex); st.ok=false; CAL.repsKey=""; } } renderCal(); },
