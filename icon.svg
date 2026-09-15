@@ -1,19 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <defs>
-    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#d9a934"/>
-      <stop offset="0.55" stop-color="#a97a1c"/>
-      <stop offset="1" stop-color="#6b4a0e"/>
-    </linearGradient>
-    <radialGradient id="shine" cx="0.35" cy="0.3" r="0.6">
-      <stop offset="0" stop-color="#fff" stop-opacity="0.28"/>
-      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
-    </radialGradient>
-  </defs>
   <rect width="512" height="512" fill="#000"/>
-  <!-- rączka: biała, wchodzi w korpus -->
-  <path d="M150 272 C 96 62, 416 62, 362 272" fill="none" stroke="#ffffff" stroke-width="52" stroke-linecap="round"/>
-  <!-- korpus: ciemne złoto, płaski spód -->
-  <path d="M181 470 A150 150 0 1 1 331 470 L 322 470 A 8 8 0 0 1 314 478 L 198 478 A 8 8 0 0 1 190 470 Z" fill="url(#gold)"/>
-  <path d="M181 470 A150 150 0 1 1 331 470 Z" fill="url(#shine)"/>
+  <text x="256" y="292" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-weight="900" font-size="152" letter-spacing="-6" fill="#f4f1ea">EMOM</text>
+  <rect x="86" y="326" width="340" height="26" rx="13" fill="#2a3040"/>
+  <rect x="86" y="326" width="238" height="26" rx="13" fill="#ff7a18"/>
 </svg>
