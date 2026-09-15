@@ -281,6 +281,7 @@ const VIDEOS = {
   "p5dB_vxmeUY":{t:"15 Minute Upper Body Kettlebell Workout",ch:"Kingdom Kettlebells"},
   "2npL1J0Y6cA":{t:"Trening całego brzucha w domu bez sprzętu w 5 min",ch:"Nasri"},
   "rzTj7omKIR4":{t:"5-Minute Morning Kettlebell Routine",ch:"Vadim Kettlebell"},
+  "zwc-syz_Yzk":{t:"Upper Body Strength Kettlebell TABATA",ch:"Vadim Kettlebell"},
   "XuvxplfUF-4":{t:"Brutally Effective Beginner Kettlebell Complex – Full Body",ch:"FitDad"},
 };
 const TAGS = ["biceps","triceps","barki","klatka","plecy","brzuch","nogi","pośladki","cardio"];
@@ -331,6 +332,7 @@ const EXERCISES = [
   {id:"goblet-squat",name:"Goblet Squat",desc:"Przysiad z kettlem przy klatce; klatka wysoko, kolana na zewnątrz.",reps:10,range:"10–12",tags:["nogi","pośladki"],src:"2jyYS8B0TK8"},
   {id:"split-stance-lunge",name:"Split-Stance Lunge",desc:"Wykrok w rozkroku z kettlem trzymanym jak walizka, po 5 na stronę.",reps:10,tags:["nogi","pośladki"],src:"2jyYS8B0TK8"},
   {id:"curl-press",name:"Curl + Press",desc:"Uginanie ramion, a potem wyciśnięcie nad głowę; kontrolowany powrót.",reps:6,range:"6–8",tags:["biceps","barki"],src:"2jyYS8B0TK8"},
+  {id:"extended-halo",name:"Extended Halo",desc:"Halo na wyprostowanych ramionach – kettel krąży wokół głowy daleko od ciała, żebra ściągnięte.",work:20,tags:["barki","brzuch"],src:"zwc-syz_Yzk"},
   {id:"around-the-world",name:"Around The World",desc:"Przekładanie kettla wokół tułowia w staniu, płynnie, zmiana kierunku co kilka powtórzeń.",work:30,tags:["brzuch","barki"],src:"rzTj7omKIR4"},
   {id:"swing-clean",name:"Swing Clean",desc:"Wymach przechodzący w zarzut kettla na bark i kontrolowany zrzut do kolejnego wymachu.",work:30,tags:["nogi","plecy","barki","cardio"],src:"rzTj7omKIR4"},
   {id:"leg-raise",name:"Leg Raise",desc:"Wznosy nóg: leżąc na plecach unosisz proste nogi do pionu i opuszczasz powoli, lędźwie przy podłodze.",work:30,bw:true,tags:["brzuch"],src:"2npL1J0Y6cA"},
@@ -377,6 +379,10 @@ const PRESETS = [
   {id:"p-morning5",name:"Poranna rutyna 5 min",focus:"mobilność + pompa · 10 × 30 s bez przerwy (lekki kettel)",src:"rzTj7omKIR4",rounds:1,slot:30,items:[
     I("around-the-world",null,null,{work:30}),I("upright-row",null,null,{work:30}),I("halo",null,null,{work:30}),I("front-to-back",null,null,{work:30}),I("russian-swing",null,null,{work:30}),
     I("romanian-deadlift",null,null,{work:30}),I("swing-clean",null,null,{work:30}),I("goblet-back-lunge-alt",null,null,{work:30}),I("goblet-shoulder-press",null,null,{work:30}),I("squatted-curl",null,null,{work:30})]},
+  /* tabata: 20 s pracy / 10 s przerwy w bloku 30 s, przerwa między rundami */
+  {id:"t-upper",kind:"tabata",name:"Tabata · Upper Body Strength",focus:"barki + biceps · 20 s pracy / 10 s przerwy · 6 ćwiczeń × 5 rund",src:"zwc-syz_Yzk",rounds:5,slot:30,roundRest:60,items:[
+    I("front-to-back",null,null,{work:20}),I("extended-halo",null,null,{work:20}),I("upright-row",null,null,{work:20}),
+    I("goblet-front-side-raise-alt",null,null,{work:20}),I("goblet-shoulder-press",null,null,{work:20}),I("biceps-curl",null,null,{work:20})]},
   /* zestawy autorskie zbudowane z biblioteki */
   {id:"a-legs",name:"Nogi & pośladki",focus:"nogi + pośladki",src:null,rounds:5,items:[
     I("goblet-squat",12),I("goblet-back-lunge-alt",14),I("romanian-deadlift",16),I("russian-swing",20)]},
@@ -408,7 +414,7 @@ const nf=n=>Math.round(n).toLocaleString("pl-PL");
 function plural(n,one,few,many){ n=Math.abs(n); if(n===1) return one; const r=n%10, h=n%100; return (r>=2&&r<=4&&!(h>=12&&h<=14))?few:many; }
 const exWord=n=>`${n} ${plural(n,"ćwiczenie","ćwiczenia","ćwiczeń")}`;
 const rdWord=n=>`${n} ${plural(n,"runda","rundy","rund")}`;
-const setMeta=(len,rounds,slot)=>{ slot=slot||60; const min=Math.round(len*rounds*slot/60*10)/10; return `${exWord(len)} × ${rdWord(rounds)} · ${min} min${slot!==60?` · bloki ${slot} s`:""}`; };
+const setMeta=(len,rounds,slot,roundRest)=>{ slot=slot||60; const min=Math.round((len*rounds*slot+Math.max(0,rounds-1)*(roundRest||0))/60*10)/10; return `${exWord(len)} × ${rdWord(rounds)} · ${min} min${slot!==60?` · bloki ${slot} s`:""}${roundRest?` · przerwy ${roundRest} s`:""}`; };
 function when(iso){
   const d=new Date(iso), t=new Date(); const dd=Math.round((new Date(t.getFullYear(),t.getMonth(),t.getDate())-new Date(d.getFullYear(),d.getMonth(),d.getDate()))/864e5);
   if(dd===0) return "dziś"; if(dd===1) return "wczoraj";
@@ -439,21 +445,27 @@ function resolveItem(it){ const ex=EXMAP[it.id]; return { id:it.id, name:ex.name
   work:it.work==null?null:it.work, rest:!!ex.rest, bw:!!ex.bw, label:itemLabel(it), src:ex.src||null }; }
 function buildPlan(s,e){
   const items=e.items.map(resolveItem);
-  return { setId:s.id||null, name:s.name, rounds:e.rounds, kg:e.kg, src:s.src||null, slot:s.slot||60, items, segs:[{items,rounds:e.rounds,label:null}] };
+  return { setId:s.id||null, name:s.name, rounds:e.rounds, kg:e.kg, src:s.src||null, slot:s.slot||60, items, segs:[{items,rounds:e.rounds,label:null,roundRest:s.roundRest||0}] };
 }
 /* Trening = segmenty: [0] set bazowy, dalej dogrywki. cut = ile minut segmentu faktycznie zaliczono (po przerwaniu).
    seqOf zamienia segmenty na płaską listę minut; slot identyfikuje ćwiczenie w segmencie (do edycji powtórzeń). */
-function seqOf(segs){ const seq=[]; (segs||[]).forEach((sg,si)=>{ const len=sg.items.length; if(!len) return; const tot=sg.cut!=null?sg.cut:len*sg.rounds;
-  for(let m=0;m<tot;m++){ seq.push(Object.assign({},sg.items[m%len],{seg:si,slot:`${si}:${m%len}`,round:Math.floor(m/len)+1,rounds:sg.rounds,segLabel:sg.label||null})); } }); return seq; }
+const REST_ITEM=()=>({id:"rest",name:"Przerwa",side:null,reps:null,work:null,rest:true,bw:false,label:"przerwa między rundami",src:null});
+function seqOf(segs,slot){ slot=slot||60; const seq=[]; (segs||[]).forEach((sg,si)=>{ const len=sg.items.length; if(!len) return;
+  const k=sg.roundRest?Math.max(1,Math.round(sg.roundRest/slot)):0; const full=[];
+  for(let r=0;r<sg.rounds;r++){ sg.items.forEach((it,i)=>full.push(Object.assign({},it,{seg:si,slot:`${si}:${i}`,round:r+1,rounds:sg.rounds,segLabel:sg.label||null})));
+    if(k&&r<sg.rounds-1) for(let j=0;j<k;j++) full.push(Object.assign(REST_ITEM(),{seg:si,slot:`${si}:rr`,round:r+1,rounds:sg.rounds,segLabel:sg.label||null,roundRest:true})); }
+  const tot=sg.cut!=null?Math.min(sg.cut,full.length):full.length; for(let m=0;m<tot;m++) seq.push(full[m]); }); return seq; }
+const segLen=(sg,slot)=>seqOf([sg],slot).length;
+const roundsDoneOf=(seq,mins,baseLen)=>Math.round(seq.slice(0,mins).filter(it=>it.seg===0&&!it.roundRest).length/Math.max(1,baseLen)*10)/10;
 function entrySegs(e){ return e.segs||[{items:e.items||[],rounds:e.rounds||1,label:null}]; }
-function entrySeq(e){ return seqOf(entrySegs(e)).slice(0,e.minutes==null?undefined:e.minutes); }
+function entrySeq(e){ return seqOf(entrySegs(e),e.slot||60).slice(0,e.minutes==null?undefined:e.minutes); }
 function makeEntry(p,repsOf,mins,secs,complete,dateIso,kgOf){
-  kgOf=kgOf||(()=>p.kg); const seq=seqOf(p.segs); let reps=0,vol=0;
+  kgOf=kgOf||(()=>p.kg); const slot=p.slot||60, seq=seqOf(p.segs,slot); let reps=0,vol=0;
   for(let m=0;m<Math.min(mins,seq.length);m++){ const it=seq[m]; if(it.rest) continue; const r=repsOf(it.slot,it); if(r==null) continue; reps+=r; if(!it.bw) vol+=r*(kgOf(it.slot)||0); }
-  const base=p.segs[0], baseLen=base.items.length||1, baseTot=base.cut!=null?base.cut:baseLen*base.rounds, baseMin=Math.min(mins,baseTot);
-  const segs=p.segs.map((sg,si)=>({label:sg.label||null,rounds:sg.rounds,cut:sg.cut==null?null:sg.cut,
+  const base=p.segs[0], baseLen=base.items.length||1;
+  const segs=p.segs.map((sg,si)=>({label:sg.label||null,rounds:sg.rounds,cut:sg.cut==null?null:sg.cut,roundRest:sg.roundRest||0,
     items:sg.items.map((it,i)=>({id:it.id,name:it.name,side:it.side||null,reps:it.rest?null:repsOf(`${si}:${i}`,it),work:it.work==null?null:it.work,bw:!!it.bw,rest:!!it.rest,kg:(it.rest||it.bw)?null:kgOf(`${si}:${i}`)}))}));
-  return { id:Date.now(), date:dateIso, setId:p.setId||null, name:p.name, rounds:base.rounds, roundsDone:Math.round(baseMin/baseLen*10)/10,
+  return { id:Date.now(), date:dateIso, setId:p.setId||null, name:p.name, rounds:base.rounds, roundsDone:roundsDoneOf(seq,mins,baseLen),
     minutes:mins, seconds:secs, kg:p.kg, complete, reps, volume:vol, slot:p.slot||60, segs, items:segs[0].items };
 }
 function stepper(field,value,o){
@@ -514,7 +526,7 @@ function setCard(s){
   const e=effective(s), tags=setTags(s).slice(0,5);
   return `<div class="card tap" data-act="open-set" data-id="${s.id}"><div class="row"><div class="grow">
     <h3>${esc(s.name)}</h3>${s.focus?`<div class="sub">${esc(s.focus)}</div>`:""}
-    <div class="sub">${setMeta(s.items.length,e.rounds,s.slot)}</div>
+    <div class="sub">${setMeta(s.items.length,e.rounds,s.slot,s.roundRest)}</div>
     <div class="chips">${tags.map(t=>`<span class="chip">${t}</span>`).join("")}</div></div>
     ${s.src?`<button class="play" data-act="video" data-vid="${s.src}" aria-label="Film">▶</button>`:""}</div></div>`;
 }
@@ -525,7 +537,8 @@ function renderHome(){
       <h3>${esc(p.name)}</h3><div class="sub">${setMeta(p.items.length,p.rounds,p.slot)} · ${p.kg} kg · ${when(DB.last.at)}</div></div>
       <button class="btn small" data-act="last-start">Start</button></div></div>`; }
   if(DB.custom.length) h+=`<div class="h2">Moje sety</div>`+DB.custom.map(setCard).join("");
-  h+=`<div class="h2">Sety z filmów</div>`+PRESETS.filter(s=>s.src).map(setCard).join("");
+  h+=`<div class="h2">Sety z filmów</div>`+PRESETS.filter(s=>s.src&&s.kind!=="tabata").map(setCard).join("");
+  h+=`<div class="h2">Tabata</div>`+PRESETS.filter(s=>s.kind==="tabata").map(setCard).join("");
   h+=`<div class="h2">Kalistenika</div>`+Object.entries(CAL_EX).map(([id,ex])=>{ const last=DB.log.find(e=>e.kind==="cal"&&e.sets&&e.sets.some(x=>x.ex===id));
     return `<div class="card tap" data-act="open-cal" data-ex="${id}"><h3>${esc(ex.name)}</h3><div class="sub">Liczą się powtórzenia w seriach. Stoper mierzy tylko cały trening i przerwy.</div>${last?`<div class="sub">ostatnio: ${last.rounds} ${plural(last.rounds,"seria","serie","serii")} · ${nf(last.reps)} powt. · ${when(last.date)}</div>`:""}</div>`; }).join("");
   h+=`<div class="h2">Zestawy na partie ciała</div>`+PRESETS.filter(s=>!s.src).map(setCard).join("");
@@ -550,14 +563,14 @@ function exRow(it,i,field,extra,setSrc,slot){
 }
 function renderDetail(){
   const s=getSet(view.setId); if(!s){ goHome(); return; }
-  const e=effective(s), slot=s.slot||60, total=Math.round(s.items.length*e.rounds*slot/60*10)/10, v=planVolume(e.items,e.rounds,e.kg);
+  const e=effective(s), slot=s.slot||60, rr=s.roundRest||0, total=Math.round((s.items.length*e.rounds*slot+Math.max(0,e.rounds-1)*rr)/60*10)/10, v=planVolume(e.items,e.rounds,e.kg);
   $("d-title").textContent=s.name;
   let h=`<div class="card">`;
   if(s.src){ const vd=VIDEOS[s.src]||{t:"Film",ch:""}; h+=`<div class="row"><div class="grow"><div class="sub">Źródło: ${esc(vd.ch)}</div><div class="nm">${esc(vd.t)}</div></div><button class="play" data-act="video" data-vid="${s.src}" aria-label="Film">▶</button></div>`; }
   else h+=`<div class="nm">${s.custom?"Mój set":"Zestaw z biblioteki ćwiczeń"}</div>`;
   if(s.focus) h+=`<div class="sub">${esc(s.focus)}</div>`;
   h+=`<div class="chips">${setTags(s).map(t=>`<span class="chip">${t}</span>`).join("")}</div></div>`;
-  h+=`<div class="card"><div class="row"><div class="grow"><div class="nm">Rundy</div><div class="sub">${exWord(s.items.length)} × ${e.rounds} = <b>${total} min</b></div></div>${stepper("d-rounds",e.rounds,{step:1,min:1,max:12})}</div>
+  h+=`<div class="card"><div class="row"><div class="grow"><div class="nm">Rundy</div><div class="sub">${exWord(s.items.length)} × ${e.rounds} = <b>${total} min</b>${rr?` · przerwa ${rr} s między rundami`:""}</div></div>${stepper("d-rounds",e.rounds,{step:1,min:1,max:12})}</div>
     <div class="row" style="margin-top:12px"><div class="grow"><div class="nm">Kettlebell</div><div class="sub">plan: ${nf(v.reps)} powt. · ok. ${nf(v.vol)} kg</div></div>${stepper("d-kg",e.kg,{unit:"kg",step:2,min:0,max:60})}</div>
     <div class="sub" style="margin-top:10px">Kafle na timerze: <b>${(DB.bells||[]).join(" · ")} kg</b> <button class="kgchip" data-act="bells">zmień</button></div></div>`;
   h+=`<div class="h2">Ćwiczenia – jedno na ${slot===60?"minutę":`blok ${slot} s`}</div><div class="card">`+e.items.map((it,i)=>exRow(it,i,"d-item",null,s.src||null,slot)).join("")+`</div>`;
@@ -794,10 +807,10 @@ function tick(now){
     if(elapsed>=prepEnd){
       const sl=SL(), inMin=whole%sl, idx=Math.floor(whole/sl);
       if(whole>=N()*sl){ state="done"; beepEnd(); renderTimer(); releaseWake(); setTimeout(stopSilent,1500); setTimeout(()=>openSummary(true),900); return; }
+      const it=plan.seq[idx];
       if(inMin===0){ beepMinute(); state="run"; }
       else if(inMin>=sl-3) beepCount();
-      else if(sl>=20&&inMin===sl-10) beepDouble();
-      const it=plan.seq[idx];
+      else if(sl>=20&&inMin===sl-10&&!(it&&!it.rest&&it.work===sl-10)) beepDouble();
       if(it&&!it.rest&&it.work!=null&&inMin===it.work) beep(440,250,.4);
     }else{ const left=prepEnd-elapsed; if(left<3.5&&Math.ceil(left)<=3) beepCount(); }
   }
@@ -819,7 +832,7 @@ function startTimer(p){
   if(!plan.segs) plan.segs=[{items:plan.items,rounds:plan.rounds,label:null}];
   delete plan.seq; plan.repsEdit={}; plan.kgSlot={}; tilesKey="";
   DB.last={plan:JSON.parse(JSON.stringify(plan)),at:new Date().toISOString()}; DB.kg=plan.kg; save();
-  plan.seq=seqOf(plan.segs); planBase=JSON.stringify(plan);
+  plan.seq=seqOf(plan.segs,plan.slot); planBase=JSON.stringify(plan);
   cancelAnimationFrame(raf); state="idle"; elapsed=0; prepEnd=0; lastWhole=null;
   show("timer"); renderTimer();
 }
@@ -827,10 +840,10 @@ function leaveTimer(){ cancelAnimationFrame(raf); state="idle"; elapsed=0; prepE
 /* kontynuacja po podsumowaniu: obcięcie planu do zaliczonych minut, potem 10 s przygotowania i dalej */
 function truncatePlan(mins){
   let acc=0;
-  plan.segs=plan.segs.filter((sg,si)=>{ const len=sg.items.length, tot=sg.cut!=null?sg.cut:len*sg.rounds; const keep=Math.max(0,Math.min(tot,mins-acc)); acc+=tot; sg.cut=keep; return si===0||keep>0; });
+  plan.segs=plan.segs.filter((sg,si)=>{ const tot=segLen(sg,SL()); const keep=Math.max(0,Math.min(tot,mins-acc)); acc+=tot; sg.cut=keep; return si===0||keep>0; });
 }
 function continueTimer(startMin){
-  plan.seq=seqOf(plan.segs); prepEnd=startMin*SL(); elapsed=prepEnd-PREP; lastWhole=null; state="prep";
+  plan.seq=seqOf(plan.segs,plan.slot); prepEnd=startMin*SL(); elapsed=prepEnd-PREP; lastWhole=null; state="prep";
   closeModal(); $("app").classList.remove("done"); show("timer"); keepAwake();
   $("main").textContent="Pauza"; renderTimer(); unlockAudio(); beepDouble();
   lastTick=performance.now(); raf=requestAnimationFrame(tick);
@@ -856,8 +869,8 @@ function openSummary(complete){
 const sumKg=slot=>(SUM.kgSlot[slot]!=null?SUM.kgSlot[slot]:SUM.kg);
 function sumTotals(){ let reps=0,vol=0; for(let m=0;m<SUM.mins;m++){ const it=plan.seq[m]; if(!it||it.rest) continue; const r=SUM.reps[it.slot]; if(r==null) continue; reps+=r; if(!it.bw) vol+=r*sumKg(it.slot); } return {reps,vol}; }
 function renderSummary(){
-  const t=sumTotals(), base=plan.segs[0], baseLen=base.items.length, baseTot=base.cut!=null?base.cut:baseLen*base.rounds;
-  const baseMin=Math.min(SUM.mins,baseTot), rd=Math.round(baseMin/baseLen*10)/10, ex=Math.max(0,SUM.mins-baseTot);
+  const t=sumTotals(), base=plan.segs[0], baseLen=base.items.length, baseTot=segLen(base,SL());
+  const rd=roundsDoneOf(plan.seq,SUM.mins,baseLen), ex=Math.max(0,SUM.mins-baseTot);
   const rows=plan.segs.map((sg,si)=>(si>0?`<div class="h2" style="color:var(--work)">${esc(sg.label||"Dogrywka")} · ${rdWord(sg.rounds)}</div>`:"")+
     sg.items.map((it,i)=>{ if(it.rest) return ""; const slot=`${si}:${i}`;
       return `<div class="exrow"><div class="row"><div class="grow"><div class="nm">${esc(it.name)}${it.side?` <span class="side">${it.side==="L"?"lewa":"prawa"}</span>`:""}</div><div class="ds">${esc(it.label)}${it.bw?" · bez kettla":` · <button class="kgchip" data-act="sum-kg-cycle" data-slot="${slot}" aria-label="Zmień ciężar">${sumKg(slot)} kg</button>`}</div></div>${it.reps==null?`<div class="ds">na czas</div>`:stepper("sum-reps",SUM.reps[slot],{step:1,min:0,max:200,idx:slot})}</div></div>`; }).join("")).join("");
@@ -1047,7 +1060,7 @@ const FIT_CAT={ "biceps-curl":7,"goblet-curl":7,"squatted-curl":7,"curl-press":7
   "overhead-march":3,"russian-swing":12,"alt-swing":12,"american-swing":12,"swing-clean-push-press":18,"dead-clean-push-press-alt":18,
   "goblet-clean-squat":28,"goblet-squat":28,"thruster":28,"bent-row-alt":23,"bent-over-row":23,"upright-row":23,"sumo-high-pull":23,"high-pull-alt":23,"high-pull-complex":29,
   "goblet-back-lunge-alt":17,"front-rack-lunge":17,"split-stance-lunge":17,"kneeling-goblet-press":24,"goblet-shoulder-press":24,"push-press":24,"front-to-back":24,
-  "around-the-world":5,"swing-clean":18,"leg-raise":16,"russian-twist":5,"crunch":6,"hollow-body":5,"romanian-deadlift":8,"burpee":29,"goblet-floor-press":0,"horizontal-press-twist":0,"pushup":22,"front-raise":14,"goblet-front-side-raise-alt":14 };
+  "extended-halo":5,"around-the-world":5,"swing-clean":18,"leg-raise":16,"russian-twist":5,"crunch":6,"hollow-body":5,"romanian-deadlift":8,"burpee":29,"goblet-floor-press":0,"horizontal-press-twist":0,"pushup":22,"front-raise":14,"goblet-front-side-raise-alt":14 };
 function fitCrc(bytes,len){
   const T=[0x0000,0xCC01,0xD801,0x1400,0xF001,0x3C00,0x2800,0xE401,0xA001,0x6C00,0x7800,0xB401,0x5000,0x9C01,0x8801,0x4400]; let c=0;
   for(let i=0;i<len;i++){ const b=bytes[i]; let t=T[c&0xF]; c=(c>>4)&0x0FFF; c=c^t^T[b&0xF]; t=T[c&0xF]; c=(c>>4)&0x0FFF; c=c^t^T[(b>>4)&0xF]; }
@@ -1096,7 +1109,7 @@ function buildFit(e){
       lap(t,t+d+r); t+=d+r; });
     if(end>t) enc.msg(3,[end]);
   } else {
-    const sl=e.slot||60, seq=seqOf(entrySegs(e)), mins=Math.min(e.minutes||0,seq.length,Math.floor(total/sl));
+    const sl=e.slot||60, seq=seqOf(entrySegs(e),sl), mins=Math.min(e.minutes||0,seq.length,Math.floor(total/sl));
     for(let m=0;m<mins;m++){ const it=seq[m]||{rest:true}, t0=start+m*sl, kg=(it.kg!=null?it.kg:(e.kg||0));
       if(it.rest){ set(t0,sl,null); }
       else if(it.work!=null&&it.work<sl){ set(t0,it.work,it,kg); set(t0+it.work,sl-it.work,null); }
