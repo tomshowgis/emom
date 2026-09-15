@@ -282,6 +282,7 @@ const VIDEOS = {
   "2npL1J0Y6cA":{t:"Trening całego brzucha w domu bez sprzętu w 5 min",ch:"Nasri"},
   "rzTj7omKIR4":{t:"5-Minute Morning Kettlebell Routine",ch:"Vadim Kettlebell"},
   "zwc-syz_Yzk":{t:"Upper Body Strength Kettlebell TABATA",ch:"Vadim Kettlebell"},
+  "srXBhU9ksYo":{t:"Train Your Upper Body With One Kettlebell",ch:"Kingdom Kettlebells"},
   "XuvxplfUF-4":{t:"Brutally Effective Beginner Kettlebell Complex – Full Body",ch:"FitDad"},
 };
 const TAGS = ["biceps","triceps","barki","klatka","plecy","brzuch","nogi","pośladki","cardio"];
@@ -332,6 +333,10 @@ const EXERCISES = [
   {id:"goblet-squat",name:"Goblet Squat",desc:"Przysiad z kettlem przy klatce; klatka wysoko, kolana na zewnątrz.",reps:10,range:"10–12",tags:["nogi","pośladki"],src:"2jyYS8B0TK8"},
   {id:"split-stance-lunge",name:"Split-Stance Lunge",desc:"Wykrok w rozkroku z kettlem trzymanym jak walizka, po 5 na stronę.",reps:10,tags:["nogi","pośladki"],src:"2jyYS8B0TK8"},
   {id:"curl-press",name:"Curl + Press",desc:"Uginanie ramion, a potem wyciśnięcie nad głowę; kontrolowany powrót.",reps:6,range:"6–8",tags:["biceps","barki"],src:"2jyYS8B0TK8"},
+  {id:"chop",name:"Kneeling Chop",desc:"W klęku przenosisz kettla po skosie od biodra nad przeciwległy bark; po połowie powtórzeń zmiana strony.",reps:12,range:"6 + 6",tags:["brzuch","barki"],src:"srXBhU9ksYo"},
+  {id:"kneeling-press",name:"Kneeling One-Arm Press",desc:"Wyciskanie jednorącz nad głowę w klęku obunóż; po połowie powtórzeń zmiana ręki.",reps:12,range:"6 + 6",tags:["barki","triceps","brzuch"],src:"srXBhU9ksYo"},
+  {id:"v-sit-halo",name:"V-Sit Halo",desc:"Halo w siadzie z uniesionymi nogami – barki i brzuch pracują naraz.",reps:8,tags:["brzuch","barki"],src:"srXBhU9ksYo"},
+  {id:"knee-elbow-pushup",name:"Knee to Elbow Pushup",desc:"Pompka, a na górze przyciągnięcie kolana do łokcia; naprzemiennie, bez kettla.",reps:8,alt:true,bw:true,tags:["klatka","brzuch","triceps"],src:"srXBhU9ksYo"},
   {id:"extended-halo",name:"Extended Halo",desc:"Halo na wyprostowanych ramionach – kettel krąży wokół głowy daleko od ciała, żebra ściągnięte.",work:20,tags:["barki","brzuch"],src:"zwc-syz_Yzk"},
   {id:"around-the-world",name:"Around The World",desc:"Przekładanie kettla wokół tułowia w staniu, płynnie, zmiana kierunku co kilka powtórzeń.",work:30,tags:["brzuch","barki"],src:"rzTj7omKIR4"},
   {id:"swing-clean",name:"Swing Clean",desc:"Wymach przechodzący w zarzut kettla na bark i kontrolowany zrzut do kolejnego wymachu.",work:30,tags:["nogi","plecy","barki","cardio"],src:"rzTj7omKIR4"},
@@ -383,6 +388,9 @@ const PRESETS = [
   {id:"t-upper",kind:"tabata",name:"Tabata · Upper Body Strength",focus:"barki + biceps · 20 s pracy / 10 s przerwy · 6 ćwiczeń × 5 rund",src:"zwc-syz_Yzk",rounds:5,slot:30,roundRest:60,items:[
     I("front-to-back",null,null,{work:20}),I("extended-halo",null,null,{work:20}),I("upright-row",null,null,{work:20}),
     I("goblet-front-side-raise-alt",null,null,{work:20}),I("goblet-shoulder-press",null,null,{work:20}),I("biceps-curl",null,null,{work:20})]},
+  /* obwód na czas (AMRAP): jak najwięcej rund w zadanym czasie */
+  {id:"am-kingdom-upper",kind:"amrap",name:"Upper Body · One Kettlebell",focus:"góra ciała w klęku · obwód 15 min, jak najwięcej rund",src:"srXBhU9ksYo",rounds:1,time:900,items:[
+    I("goblet-curl",8),I("chop",12,"6 + 6"),I("kneeling-press",12,"6 + 6"),I("sumo-high-pull",8),I("v-sit-halo",8),I("knee-elbow-pushup",8)]},
   /* zestawy autorskie zbudowane z biblioteki */
   {id:"a-legs",name:"Nogi & pośladki",focus:"nogi + pośladki",src:null,rounds:5,items:[
     I("goblet-squat",12),I("goblet-back-lunge-alt",14),I("romanian-deadlift",16),I("russian-swing",20)]},
@@ -437,7 +445,7 @@ function effective(s){
   const items=s.items.map((it,i)=>{ const o=Object.assign({},it);
     if(!s.custom&&p.reps&&p.reps[i]!=null){ if(o.work!=null) o.work=p.reps[i]; else { o.reps=p.reps[i]; o.range=null; } }
     return o; });
-  return { rounds:(s.custom?s.rounds:p.rounds)||s.rounds, kg:(s.custom?s.kg:p.kg)??DB.kg, items };
+  return { rounds:(s.custom?s.rounds:p.rounds)||s.rounds, kg:(s.custom?s.kg:p.kg)??DB.kg, time:(s.custom?s.time:p.time)||s.time||null, items };
 }
 function setTags(s){ const t=[]; s.items.forEach(it=>(EXMAP[it.id]||{tags:[]}).tags.forEach(x=>{ if(!t.includes(x)) t.push(x); })); return t; }
 function planVolume(items,rounds,kg){ let reps=0,vol=0; items.forEach(it=>{ const ex=EXMAP[it.id]; if(!ex||ex.rest||it.reps==null) return; const r=it.reps*rounds; reps+=r; if(!ex.bw) vol+=r*kg; }); return {reps,vol}; }
@@ -526,7 +534,7 @@ function setCard(s){
   const e=effective(s), tags=setTags(s).slice(0,5);
   return `<div class="card tap" data-act="open-set" data-id="${s.id}"><div class="row"><div class="grow">
     <h3>${esc(s.name)}</h3>${s.focus?`<div class="sub">${esc(s.focus)}</div>`:""}
-    <div class="sub">${setMeta(s.items.length,e.rounds,s.slot,s.roundRest)}</div>
+    <div class="sub">${s.kind==="amrap"?`${exWord(s.items.length)} · obwód ${Math.round((e.time||900)/60)} min · jak najwięcej rund`:setMeta(s.items.length,e.rounds,s.slot,s.roundRest)}</div>
     <div class="chips">${tags.map(t=>`<span class="chip">${t}</span>`).join("")}</div></div>
     ${s.src?`<button class="play" data-act="video" data-vid="${s.src}" aria-label="Film">▶</button>`:""}</div></div>`;
 }
@@ -534,11 +542,12 @@ function renderHome(){
   let h="";
   if(DB.last){ const p=DB.last.plan;
     h+=`<div class="h2">Ostatni trening</div><div class="card tap" data-act="last-open"><div class="row"><div class="grow">
-      <h3>${esc(p.name)}</h3><div class="sub">${setMeta(p.items.length,p.rounds,p.slot)} · ${p.kg} kg · ${when(DB.last.at)}</div></div>
+      <h3>${esc(p.name)}</h3><div class="sub">${p.kind==="amrap"?`${exWord(p.items.length)} · obwód ${Math.round(p.time/60)} min`:setMeta(p.items.length,p.rounds,p.slot)} · ${p.kg} kg · ${when(DB.last.at)}</div></div>
       <button class="btn small" data-act="last-start">Start</button></div></div>`; }
   if(DB.custom.length) h+=`<div class="h2">Moje sety</div>`+DB.custom.map(setCard).join("");
-  h+=`<div class="h2">Sety z filmów</div>`+PRESETS.filter(s=>s.src&&s.kind!=="tabata").map(setCard).join("");
+  h+=`<div class="h2">Sety z filmów</div>`+PRESETS.filter(s=>s.src&&!s.kind).map(setCard).join("");
   h+=`<div class="h2">Tabata</div>`+PRESETS.filter(s=>s.kind==="tabata").map(setCard).join("");
+  h+=`<div class="h2">Obwody na czas</div>`+PRESETS.filter(s=>s.kind==="amrap").map(setCard).join("");
   h+=`<div class="h2">Kalistenika</div>`+Object.entries(CAL_EX).map(([id,ex])=>{ const last=DB.log.find(e=>e.kind==="cal"&&e.sets&&e.sets.some(x=>x.ex===id));
     return `<div class="card tap" data-act="open-cal" data-ex="${id}"><h3>${esc(ex.name)}</h3><div class="sub">Liczą się powtórzenia w seriach. Stoper mierzy tylko cały trening i przerwy.</div>${last?`<div class="sub">ostatnio: ${last.rounds} ${plural(last.rounds,"seria","serie","serii")} · ${nf(last.reps)} powt. · ${when(last.date)}</div>`:""}</div>`; }).join("");
   h+=`<div class="h2">Zestawy na partie ciała</div>`+PRESETS.filter(s=>!s.src).map(setCard).join("");
@@ -570,10 +579,12 @@ function renderDetail(){
   else h+=`<div class="nm">${s.custom?"Mój set":"Zestaw z biblioteki ćwiczeń"}</div>`;
   if(s.focus) h+=`<div class="sub">${esc(s.focus)}</div>`;
   h+=`<div class="chips">${setTags(s).map(t=>`<span class="chip">${t}</span>`).join("")}</div></div>`;
-  h+=`<div class="card"><div class="row"><div class="grow"><div class="nm">Rundy</div><div class="sub">${exWord(s.items.length)} × ${e.rounds} = <b>${total} min</b>${rr?` · przerwa ${rr} s między rundami`:""}</div></div>${stepper("d-rounds",e.rounds,{step:1,min:1,max:12})}</div>
-    <div class="row" style="margin-top:12px"><div class="grow"><div class="nm">Kettlebell</div><div class="sub">plan: ${nf(v.reps)} powt. · ok. ${nf(v.vol)} kg</div></div>${stepper("d-kg",e.kg,{unit:"kg",step:2,min:0,max:60})}</div>
+  h+=`<div class="card">`+(s.kind==="amrap"
+    ?`<div class="row"><div class="grow"><div class="nm">Czas obwodu</div><div class="sub">${exWord(s.items.length)} w kółko · jak najwięcej rund w <b>${Math.round((e.time||900)/60)} min</b></div></div>${stepper("d-time",Math.round((e.time||900)/60),{unit:"min",step:5,min:5,max:30})}</div>`
+    :`<div class="row"><div class="grow"><div class="nm">Rundy</div><div class="sub">${exWord(s.items.length)} × ${e.rounds} = <b>${total} min</b>${rr?` · przerwa ${rr} s między rundami`:""}</div></div>${stepper("d-rounds",e.rounds,{step:1,min:1,max:12})}</div>`)+`
+    <div class="row" style="margin-top:12px"><div class="grow"><div class="nm">Kettlebell</div><div class="sub">${s.kind==="amrap"?`jedna runda: ${nf(planVolume(e.items,1,e.kg).reps)} powt. · ok. ${nf(planVolume(e.items,1,e.kg).vol)} kg`:`plan: ${nf(v.reps)} powt. · ok. ${nf(v.vol)} kg`}</div></div>${stepper("d-kg",e.kg,{unit:"kg",step:2,min:0,max:60})}</div>
     <div class="sub" style="margin-top:10px">Kafle na timerze: <b>${(DB.bells||[]).join(" · ")} kg</b> <button class="kgchip" data-act="bells">zmień</button></div></div>`;
-  h+=`<div class="h2">Ćwiczenia – jedno na ${slot===60?"minutę":`blok ${slot} s`}</div><div class="card">`+e.items.map((it,i)=>exRow(it,i,"d-item",null,s.src||null,slot)).join("")+`</div>`;
+  h+=`<div class="h2">${s.kind==="amrap"?"Ćwiczenia w rundzie":`Ćwiczenia – jedno na ${slot===60?"minutę":`blok ${slot} s`}`}</div><div class="card">`+e.items.map((it,i)=>exRow(it,i,"d-item",null,s.src||null,slot)).join("")+`</div>`;
   if(!s.custom&&DB.prefs[s.id]) h+=`<button class="btn secondary w100" data-act="d-reset">Przywróć domyślne</button>`;
   if(s.custom) h+=`<button class="btn danger w100" style="margin-top:10px" data-act="d-delete">Usuń set</button>`;
   const sc=$("detail").scrollTop; $("detail").innerHTML=h; $("detail").scrollTop=sc;
@@ -662,6 +673,10 @@ function renderLog(){
       <span class="num" style="width:auto">${open?"▲":"▼"}</span></div>`;
     if(open&&e.kind==="cal"){ h+=`<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">`;
       (e.sets||[]).forEach((st,i)=>{ h+=`<div class="row" style="padding:6px 0"><div class="grow nm" style="font-size:15px">Seria ${i+1} · ${esc(st.name||"")}</div><div class="ds">${st.reps} powt.${(CAL_EX[st.ex]||{}).grips&&(st.over||st.under)?` (${[["over","nachwyt"],["under","podchwyt"]].filter(([k])=>st[k]>0).map(([k,nm])=>`${st[k]} ${nm}`).join(" + ")})`:""}${st.rest?` · przerwa ${fmt(st.rest)}`:""}</div></div>`; });
+      h+=`<div class="row" style="margin-top:8px"><button class="btn secondary small grow" data-act="garmin" data-id="${e.id}">Wyślij do Garmin (FIT)</button><button class="btn danger small" data-act="log-delete" data-id="${e.id}">Usuń</button></div></div>`; }
+    else if(open&&e.kind==="amrap"){ h+=`<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">`;
+      h+=`<div class="ds">obwód ${Math.round((e.time||0)/60)} min · ${e.rounds} ${plural(e.rounds,"pełna runda","pełne rundy","pełnych rund")} (${e.roundsDone})</div>`;
+      (e.items||[]).forEach(it=>{ h+=`<div class="row" style="padding:6px 0"><div class="grow nm" style="font-size:15px">${esc(it.name)}</div><div class="ds">${it.count} × ${it.reps==null?"–":it.reps}${it.reps!=null?` = ${it.count*it.reps} powt.`:""}${it.bw?" · bez kettla":(it.kg!=null&&it.kg!==e.kg?` · ${it.kg} kg`:"")}</div></div>`; });
       h+=`<div class="row" style="margin-top:8px"><button class="btn secondary small grow" data-act="garmin" data-id="${e.id}">Wyślij do Garmin (FIT)</button><button class="btn danger small" data-act="log-delete" data-id="${e.id}">Usuń</button></div></div>`; }
     else if(open){ h+=`<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">`;
       const exMin=entrySeq(e).filter(it=>it.seg>0).length;
@@ -924,7 +939,7 @@ function repsPanelHtml(st,k){ const g=gripsOf(st.ex), name=CAL_EX[st.ex].name;
   return `<div class="setcard pending"><div class="nm" style="margin-bottom:8px">Seria ${k} · ${esc(name)} <span class="ds">(zmień chipem wyżej, jeśli to inne ćwiczenie)</span></div>${fields}
     <button class="btn small w100" style="margin-top:12px" data-act="cal-ok">✓ Zatwierdź serię ${k}</button></div>`; }
 function goCal(ex){
-  CAL={ex,state:"idle",elapsed:0,lastTick:0,raf:null,sets:[],setStart:0,restStart:0,startedAt:null,beeped:false,repsKey:""};
+  AM=null; CAL={ex,state:"idle",elapsed:0,lastTick:0,raf:null,sets:[],setStart:0,restStart:0,startedAt:null,beeped:false,repsKey:""};
   show("cal"); renderCal();
 }
 function renderCal(){
@@ -936,6 +951,7 @@ function renderCal(){
   const tiles=$("cal-tiles"); tiles.innerHTML=CAL_RESTS.map(v=>`<button class="tile${v===calRest()?" on":""}" data-act="cal-rest" data-t="${v}">${v} s</button>`).join("");
   clock.classList.remove("warn","rest"); $("cal-hint").hidden=c.state!=="idle"; $("cal-phase").hidden=c.state!=="idle";
   if(c.state==="idle"){
+    $("cal-hint").textContent="Serie bez limitu czasu. Stoper mierzy cały trening, „Koniec serii” włącza zegar przerwy, „Start serii” zaczyna kolejną. Pik-pik, gdy minie cel przerwy.";
     $("cal-serie").innerHTML="Seria <b>–</b>"; $("cal-mode").textContent="Kalistenika · serie i powtórzenia"; $("cal-sec").textContent="0:00";
     $("cal-phase").textContent="Start uruchamia stoper. Po każdej serii naciśnij „Koniec serii”.";
     $("cal-reps").hidden=true; tiles.hidden=false; $("cal-main").textContent="Start"; $("cal-end").textContent="Wróć"; fill.style.height="0%"; return;
@@ -975,7 +991,7 @@ function calFinish(){
   else if(c.state==="rest"){ c.sets[c.sets.length-1].rest=Math.round(c.elapsed-c.restStart); }
   c.state="done"; releaseWake(); stopSilent(); renderCalSummary();
 }
-function calLeave(){ if(CAL&&CAL.raf) cancelAnimationFrame(CAL.raf); releaseWake(); stopSilent(); CAL=null; closeModal(); goHome(); }
+function calLeave(){ AM=null; if(CAL&&CAL.raf) cancelAnimationFrame(CAL.raf); releaseWake(); stopSilent(); CAL=null; closeModal(); goHome(); }
 function renderCalSummary(){
   const c=CAL, reps=calTotals(), secs=Math.floor(c.elapsed), n=c.sets.length, mixed=new Set(c.sets.map(x=>x.ex)).size>1;
   const exChips=(x,i)=>`<div class="filters" style="padding:6px 0 0">${Object.entries(CAL_EX).map(([id,e])=>`<button class="chip${id===x.ex?" on":""}" data-act="cal-sum-ex" data-idx="${i}" data-ex="${id}" style="min-height:36px;font-size:13px;padding:0 12px">${e.name}</button>`).join("")}</div>`;
@@ -996,6 +1012,79 @@ function calEntry(){
     sets:c.sets.map(x=>{ const o={ex:x.ex,name:CAL_EX[x.ex].name,reps:x.reps,dur:x.dur,rest:x.rest}; (gripsOf(x.ex)||[]).forEach(([k])=>{ o[k]=x[k]||0; }); return o; }) };
 }
 function calSave(){ DB.log.unshift(calEntry()); save(); const id=DB.log[0].id; calLeave(); toast("Zapisano w dzienniku"); return id; }
+
+/* =====================================================================
+   OBWÓD NA CZAS (AMRAP) – jak najwięcej rund w zadanym czasie; korzysta z ekranu kalisteniki (#s-cal)
+   ===================================================================== */
+let AM=null; // {plan:{kind,setId,name,src,kg,time,items}, state: idle|run|paused|done, elapsed, idx, round, done:[{i,t,kg}], kgSlot, startedAt}
+function amPlanFrom(s,e){ return {kind:"amrap",setId:s.id||null,name:s.name,src:s.src||null,kg:e.kg,time:e.time||s.time||900,items:e.items.map(resolveItem)}; }
+function startAmrap(s,e){ startAmrapPlan(amPlanFrom(s,e)); }
+function startAmrapPlan(p){
+  const plan=JSON.parse(JSON.stringify(p));
+  AM={plan,state:"idle",elapsed:0,lastTick:0,raf:null,idx:0,round:1,done:[],kgSlot:{},startedAt:null,lastW:null};
+  DB.last={plan:JSON.parse(JSON.stringify(plan)),at:new Date().toISOString()}; DB.kg=plan.kg; save();
+  CAL=null; show("cal"); renderAm();
+}
+const amKg=i=>(AM.kgSlot[i]!=null?AM.kgSlot[i]:AM.plan.kg);
+function amTotals(){ let reps=0,vol=0; AM.done.forEach(d=>{ const it=AM.plan.items[d.i]; if(!it||it.rest||it.reps==null) return; reps+=it.reps; if(!it.bw) vol+=it.reps*(d.kg||0); }); return {reps,vol}; }
+function renderAm(){
+  const a=AM; if(!a) return; const p=a.plan, len=p.items.length, it=p.items[a.idx], nxt=p.items[(a.idx+1)%len], rem=Math.max(0,p.time-a.elapsed), t=amTotals();
+  const full=Math.floor(a.done.length/len), extra=a.done.length%len, active=a.state==="run"||a.state==="paused";
+  $("cal-total").textContent=fmt(a.elapsed); $("cal-hint").hidden=a.state!=="idle"; $("cal-phase").hidden=false; $("cal-reps").hidden=true;
+  $("cal-serie").innerHTML=`Runda <b>${a.round}</b> · ćw. ${a.idx+1}/${len}`;
+  $("cal-name").textContent=sideName(it);
+  $("cal-ex").innerHTML=p.items.map((x,i)=>`<button class="chip${i===a.idx?" on":""}" data-act="am-jump" data-i="${i}" style="min-height:40px;font-size:13px;padding:0 12px">${i+1}. ${esc(x.name)}</button>`).join("");
+  const on=$("cal-ex").querySelector(".chip.on"); if(on){ const el=$("cal-ex"); if(el.scrollWidth>el.clientWidth) el.scrollLeft=Math.max(0,on.offsetLeft-(el.clientWidth-on.offsetWidth)/2); }
+  const clock=$("cal-clock"); clock.classList.remove("rest"); clock.classList.toggle("warn",active&&rem<=60);
+  $("cal-sec").textContent=fmt(Math.ceil(rem));
+  $("cal-phase").innerHTML=`<span style="color:var(--work);font-weight:700;font-size:22px">${esc(it.label)}</span><br><span class="ds">następnie: ${esc(nxt.name)}</span>`;
+  $("cal-sets").innerHTML=a.done.length?`Zaliczone: <b>${full}</b> ${plural(full,"pełna runda","pełne rundy","pełnych rund")}${extra?` + ${extra} ćw.`:""} · <b>${nf(t.reps)}</b> powt. · ${nf(t.vol)} kg`:"Zrób ćwiczenie i naciśnij „Zaliczone” – licznik rund i powtórzeń rośnie sam.";
+  const tiles=$("cal-tiles"), showT=!it.bw&&!it.rest&&a.state!=="done"; tiles.hidden=!showT;
+  if(showT){ const cur=amKg(a.idx); tiles.innerHTML=tileValues(cur).map(v=>`<button class="tile${v===cur?" on":""}" data-act="am-kg" data-kg="${v}">${v} kg</button>`).join(""); }
+  const fill=$("cfill"); fill.style.background="var(--work)"; fill.style.height=a.state==="idle"?"0%":`${Math.min(100,a.elapsed/p.time*100)}%`;
+  if(a.state==="idle"){ $("cal-hint").textContent="Odliczanie w dół. Po każdym ćwiczeniu naciśnij „Zaliczone” – aplikacja liczy rundy, powtórzenia i kilogramy. Pik-pik na minutę przed końcem."; $("cal-mode").textContent=`Obwód ${Math.round(p.time/60)} min · jak najwięcej rund`; $("cal-main").textContent="Start"; $("cal-end").textContent="Wróć"; return; }
+  if(a.state==="done"){ $("cal-mode").textContent="Koniec czasu"; $("cal-main").textContent="Podsumowanie"; $("cal-end").textContent="Wróć"; return; }
+  $("cal-mode").textContent=a.state==="paused"?"Pauza":`Obwód ${Math.round(p.time/60)} min · zostało`;
+  $("cal-main").textContent=a.state==="paused"?"Wznów":"Zaliczone ✓";
+  $("cal-end").textContent=a.state==="paused"?"Zakończ":"Pauza";
+}
+function amTick(now){
+  const a=AM; if(!a||a.state!=="run") return;
+  a.elapsed+=(now-a.lastTick)/1000; a.lastTick=now; const rem=a.plan.time-a.elapsed, w=Math.ceil(rem);
+  if(w!==a.lastW){ a.lastW=w; if(w===60) beepDouble(); else if(w>=1&&w<=3) beepCount(); }
+  if(rem<=0){ a.elapsed=a.plan.time; a.state="done"; beepEnd(); releaseWake(); setTimeout(stopSilent,1500); renderAm(); setTimeout(renderAmSummary,900); return; }
+  renderAm(); a.raf=requestAnimationFrame(amTick);
+}
+function amNext(){ const a=AM, len=a.plan.items.length; a.done.push({i:a.idx,t:Math.round(a.elapsed),kg:amKg(a.idx)}); a.idx=(a.idx+1)%len; if(a.idx===0){ a.round++; beepMinute(); } else beep(660,120,.4); if(navigator.vibrate) navigator.vibrate(40); }
+function amMain(){
+  const a=AM;
+  if(a.state==="idle"){ a.startedAt=new Date().toISOString(); a.state="run"; a.lastW=null; unlockAudio(); beepMinute(); keepAwake(); a.lastTick=performance.now(); a.raf=requestAnimationFrame(amTick); }
+  else if(a.state==="run"){ amNext(); }
+  else if(a.state==="paused"){ a.state="run"; unlockAudio(); keepAwake(); a.lastTick=performance.now(); a.raf=requestAnimationFrame(amTick); }
+  else if(a.state==="done"){ renderAmSummary(); return; }
+  renderAm();
+}
+function amPause(){ const a=AM; if(a.state!=="run") return; a.state="paused"; cancelAnimationFrame(a.raf); stopSilent(); renderAm(); }
+function amFinish(){ const a=AM; cancelAnimationFrame(a.raf); a.state="done"; releaseWake(); stopSilent(); renderAm(); renderAmSummary(); }
+function amLeave(){ if(AM&&AM.raf) cancelAnimationFrame(AM.raf); releaseWake(); stopSilent(); AM=null; closeModal(); goHome(); }
+function amEntry(){
+  const a=AM, p=a.plan, len=p.items.length, t=amTotals(), secs=Math.min(p.time,Math.floor(a.elapsed)), full=Math.floor(a.done.length/len);
+  const counts=p.items.map(()=>0); a.done.forEach(d=>counts[d.i]++); let prev=0;
+  return { id:Date.now(), date:a.startedAt||new Date().toISOString(), kind:"amrap", setId:p.setId, name:p.name, time:p.time, rounds:full, roundsDone:Math.round(a.done.length/len*10)/10,
+    minutes:Math.round(secs/60), seconds:secs, kg:p.kg, complete:a.elapsed>=p.time, reps:t.reps, volume:t.vol, slot:60,
+    items:p.items.map((it,i)=>({id:it.id,name:it.name,side:it.side,reps:it.reps,count:counts[i],bw:it.bw,kg:it.bw?null:(a.kgSlot[i]!=null?a.kgSlot[i]:p.kg)})),
+    sets:a.done.map(d=>{ const it=p.items[d.i], dur=Math.max(1,d.t-prev); prev=d.t; return {ex:it.id,name:it.name,reps:it.reps,dur,rest:0,kg:it.bw?0:d.kg,bw:!!it.bw}; }) };
+}
+function renderAmSummary(){
+  const a=AM, p=a.plan, len=p.items.length, t=amTotals(), full=Math.floor(a.done.length/len), extra=a.done.length%len, secs=Math.min(p.time,Math.floor(a.elapsed));
+  const counts=p.items.map(()=>0); a.done.forEach(d=>counts[d.i]++);
+  const rows=p.items.map((it,i)=>`<div class="exrow"><div class="row"><div class="grow"><div class="nm">${esc(it.name)}</div><div class="ds">${esc(it.label)}${it.bw?" · bez kettla":` · ${amKg(i)} kg`}</div></div><div class="nm">${counts[i]} ×</div></div></div>`).join("");
+  openModal(`<h2>${a.elapsed>=p.time?"Koniec czasu! 💪":"Obwód zakończony"}</h2><div class="sub">${esc(p.name)} · ${fmt(secs)} · ${full} ${plural(full,"pełna runda","pełne rundy","pełnych rund")}${extra?` + ${extra} ćw.`:""}</div>
+    <div class="h2">Ile razy zaliczone</div>${rows}
+    <div class="stat" style="margin-top:14px"><div><b>${nf(t.reps)}</b><span>powtórzeń</span></div><div><b>${nf(t.vol)}</b><span>kg przerzucone</span></div><div><b>${fmt(secs)}</b><span>czas</span></div></div>
+    <div class="stack"><button class="btn" data-act="am-save" ${a.done.length?"":"disabled"}>Zapisz w dzienniku</button><button class="btn secondary" data-act="am-save-garmin" ${a.done.length?"":"disabled"}>Zapisz i wyślij do Garmin</button><button class="btn secondary" data-act="am-skip">Nie zapisuj</button></div>`,true);
+}
+function amSave(){ DB.log.unshift(amEntry()); save(); const id=DB.log[0].id; amLeave(); toast("Zapisano w dzienniku"); return id; }
 
 /* =====================================================================
    PLIKI: udostępnianie/pobieranie + KOPIA ZAPASOWA (JSON całej bazy)
@@ -1060,7 +1149,7 @@ const FIT_CAT={ "biceps-curl":7,"goblet-curl":7,"squatted-curl":7,"curl-press":7
   "overhead-march":3,"russian-swing":12,"alt-swing":12,"american-swing":12,"swing-clean-push-press":18,"dead-clean-push-press-alt":18,
   "goblet-clean-squat":28,"goblet-squat":28,"thruster":28,"bent-row-alt":23,"bent-over-row":23,"upright-row":23,"sumo-high-pull":23,"high-pull-alt":23,"high-pull-complex":29,
   "goblet-back-lunge-alt":17,"front-rack-lunge":17,"split-stance-lunge":17,"kneeling-goblet-press":24,"goblet-shoulder-press":24,"push-press":24,"front-to-back":24,
-  "extended-halo":5,"around-the-world":5,"swing-clean":18,"leg-raise":16,"russian-twist":5,"crunch":6,"hollow-body":5,"romanian-deadlift":8,"burpee":29,"goblet-floor-press":0,"horizontal-press-twist":0,"pushup":22,"front-raise":14,"goblet-front-side-raise-alt":14 };
+  "chop":4,"kneeling-press":24,"v-sit-halo":5,"knee-elbow-pushup":22,"extended-halo":5,"around-the-world":5,"swing-clean":18,"leg-raise":16,"russian-twist":5,"crunch":6,"hollow-body":5,"romanian-deadlift":8,"burpee":29,"goblet-floor-press":0,"horizontal-press-twist":0,"pushup":22,"front-raise":14,"goblet-front-side-raise-alt":14 };
 function fitCrc(bytes,len){
   const T=[0x0000,0xCC01,0xD801,0x1400,0xF001,0x3C00,0x2800,0xE401,0xA001,0x6C00,0x7800,0xB401,0x5000,0x9C01,0x8801,0x4400]; let c=0;
   for(let i=0;i<len;i++){ const b=bytes[i]; let t=T[c&0xF]; c=(c>>4)&0x0FFF; c=c^t^T[b&0xF]; t=T[c&0xF]; c=(c>>4)&0x0FFF; c=c^t^T[(b>>4)&0xF]; }
@@ -1083,7 +1172,7 @@ function fitEncoder(){
   };
 }
 function buildFit(e){
-  const enc=fitEncoder(); const cal=e.kind==="cal";
+  const enc=fitEncoder(); const cal=e.kind==="cal"||e.kind==="amrap";
   const start=Math.floor(new Date(e.date).getTime()/1000)+(cal?0:PREP)-FIT_EPOCH;
   const total=Math.max(60,Math.floor(e.seconds||0)); const end=start+total;
   const tz=-new Date(e.date).getTimezoneOffset()*60;
@@ -1102,9 +1191,9 @@ function buildFit(e){
   const set=(t0,dur,it,kg)=>{ const active=!!it; const cat=active?(FIT_CAT[it.id]==null?65534:FIT_CAT[it.id]):null;
     enc.msg(4,[t0+dur,t0,dur*1000, active&&it.reps!=null?it.reps:null, active?(it.bw?0:kg*16):null, active?1:0, cat, active?1:null, mi++]); };
   enc.msg(3,[start]);
-  if(cal){ // kalistenika: seria (aktywna) + przerwa, okrążenie na serię
-    let t=start; (e.sets||[]).forEach(st=>{ const d=Math.max(1,Math.round(st.dur||1)), r=Math.max(0,Math.round(st.rest||0)); const cat=(CAL_EX[st.ex]||{}).fit;
-      enc.msg(4,[t+d,t,d*1000,st.reps,0,1,cat==null?65534:cat,1,mi++]); enc.msg(3,[t+d]);
+  if(cal){ // kalistenika / obwód: seria (aktywna) + ewentualna przerwa, okrążenie na serię
+    let t=start; (e.sets||[]).forEach(st=>{ const d=Math.max(1,Math.round(st.dur||1)), r=Math.max(0,Math.round(st.rest||0)); const cat=(CAL_EX[st.ex]||{}).fit??FIT_CAT[st.ex];
+      enc.msg(4,[t+d,t,d*1000,st.reps,(st.bw?0:(st.kg||0))*16,1,cat==null?65534:cat,1,mi++]); enc.msg(3,[t+d]);
       if(r>0){ enc.msg(4,[t+d+r,t+d,r*1000,null,null,0,null,null,mi++]); enc.msg(3,[t+d+r]); }
       lap(t,t+d+r); t+=d+r; });
     if(end>t) enc.msg(3,[end]);
@@ -1174,9 +1263,9 @@ const ACT={
   "modal-close":()=>{ videoOpen=null; closeModal(); },
   "open-set":d=>goDetail(d.id),
   "last-open":()=>{ const p=DB.last.plan; if(p.setId&&getSet(p.setId)) goDetail(p.setId); else startTimer(p); },
-  "last-start":()=>startTimer(DB.last.plan),
+  "last-start":()=>DB.last.plan.kind==="amrap"?startAmrapPlan(DB.last.plan):startTimer(DB.last.plan),
   "step":(d,el)=>{ const inp=el.parentElement.querySelector("input"); inp.value=(parseInt(inp.value,10)||0)+(+d.d)*(+inp.dataset.step||1); FIELD[inp.dataset.field]&&FIELD[inp.dataset.field](inp); },
-  "d-start":()=>{ const s=getSet(view.setId); startTimer(buildPlan(s,effective(s))); },
+  "d-start":()=>{ const s=getSet(view.setId); if(s.kind==="amrap"){ startAmrap(s,effective(s)); return; } startTimer(buildPlan(s,effective(s))); },
   "d-edit":()=>goCreator(view.setId),
   "d-reset":()=>{ delete DB.prefs[view.setId]; save(); renderDetail(); toast("Przywrócono domyślne"); },
   "d-delete":()=>openModal(`<h2>Usunąć ten set?</h2><div class="sub">Wpisy w dzienniku zostają.</div><div class="stack"><button class="btn danger" data-act="d-delete-yes">Usuń</button><button class="btn secondary" data-act="modal-close">Anuluj</button></div>`),
@@ -1202,14 +1291,25 @@ const ACT={
   "bk-replace":()=>applyBackup("replace"),
   "toggle-videos":()=>{ DB.ui=DB.ui||{}; DB.ui.videos=!DB.ui.videos; save(); renderHome(); },
   "open-cal":d=>goCal(d.ex),
-  "cal-ex":d=>{ if(!CAL) return; CAL.ex=d.ex; if(CAL.state==="rest"){ const st=CAL.sets[CAL.sets.length-1]; if(st.ex!==d.ex){ switchSetEx(st,d.ex); st.ok=false; CAL.repsKey=""; } } renderCal(); },
+  "cal-ex":d=>{ if(!CAL||AM) return; CAL.ex=d.ex; if(CAL.state==="rest"){ const st=CAL.sets[CAL.sets.length-1]; if(st.ex!==d.ex){ switchSetEx(st,d.ex); st.ok=false; CAL.repsKey=""; } } renderCal(); },
   "cal-ok":()=>{ const st=CAL.sets[CAL.sets.length-1]; st.ok=true; CAL.repsKey=""; renderCal(); toast(`Seria ${CAL.sets.length} zapisana`); },
   "cal-edit":()=>{ const st=CAL.sets[CAL.sets.length-1]; st.ok=false; CAL.repsKey=""; renderCal(); },
   "cal-sum-ex":d=>{ const st=CAL.sets[+d.idx]; switchSetEx(st,d.ex); renderCalSummary(); },
-  "cal-rest":d=>{ DB.calRest=+d.t; save(); if(CAL){ CAL.beeped=CAL.state==="rest"&&(CAL.elapsed-CAL.restStart)>=DB.calRest; renderCal(); } },
-  "cal-main":()=>calMain(),
-  "cal-end":()=>{ if(CAL.state==="idle"){ calLeave(); return; } openModal(`<h2>Zakończyć trening?</h2><div class="sub">${CAL.sets.length} ${plural(CAL.sets.length,"seria","serie","serii")} · ${fmt(CAL.elapsed)}</div><div class="stack"><button class="btn" data-act="cal-finish">Zakończ i podsumuj</button><button class="btn secondary" data-act="modal-close">Wróć do treningu</button></div>`); },
-  "cal-abort":()=>{ if(CAL.state==="idle"){ calLeave(); return; } openModal(`<h2>Zakończyć trening?</h2><div class="sub">${CAL.sets.length} ${plural(CAL.sets.length,"seria","serie","serii")} · ${fmt(CAL.elapsed)}</div><div class="stack"><button class="btn" data-act="cal-finish">Zakończ i podsumuj</button><button class="btn danger" data-act="cal-drop">Odrzuć i wyjdź</button><button class="btn secondary" data-act="modal-close">Wróć do treningu</button></div>`); },
+  "cal-rest":d=>{ if(AM) return; DB.calRest=+d.t; save(); if(CAL){ CAL.beeped=CAL.state==="rest"&&(CAL.elapsed-CAL.restStart)>=DB.calRest; renderCal(); } },
+  "cal-main":()=>AM?amMain():calMain(),
+  "am-jump":d=>{ if(!AM||AM.state==="idle"||AM.state==="done") return; AM.idx=+d.i; renderAm(); },
+  "am-kg":d=>{ const kg=+d.kg; if(AM.state==="idle"){ AM.plan.kg=kg; AM.kgSlot={}; DB.kg=kg; if(DB.last&&DB.last.plan) DB.last.plan.kg=kg; save(); } else AM.kgSlot[AM.idx]=kg; if(navigator.vibrate) navigator.vibrate(30); renderAm(); },
+  "am-finish":()=>{ closeModal(); amFinish(); },
+  "am-drop":()=>amLeave(),
+  "am-save":()=>amSave(),
+  "am-save-garmin":()=>{ const id=amSave(); openGarmin(id); },
+  "am-skip":()=>amLeave(),
+  "cal-end":()=>{ if(AM){ if(AM.state==="idle"||AM.state==="done"){ amLeave(); return; } if(AM.state==="run"){ amPause(); return; }
+      openModal(`<h2>Zakończyć obwód?</h2><div class="sub">${AM.done.length} zaliczonych ćwiczeń · ${fmt(AM.elapsed)}</div><div class="stack"><button class="btn" data-act="am-finish">Zakończ i podsumuj</button><button class="btn secondary" data-act="modal-close">Wróć</button></div>`); return; }
+    if(CAL.state==="idle"){ calLeave(); return; } openModal(`<h2>Zakończyć trening?</h2><div class="sub">${CAL.sets.length} ${plural(CAL.sets.length,"seria","serie","serii")} · ${fmt(CAL.elapsed)}</div><div class="stack"><button class="btn" data-act="cal-finish">Zakończ i podsumuj</button><button class="btn secondary" data-act="modal-close">Wróć do treningu</button></div>`); },
+  "cal-abort":()=>{ if(AM){ if(AM.state==="idle"){ amLeave(); return; } if(AM.state==="run") amPause();
+      openModal(`<h2>Zakończyć obwód?</h2><div class="sub">${AM.done.length} zaliczonych ćwiczeń · ${fmt(AM.elapsed)}</div><div class="stack"><button class="btn" data-act="am-finish">Zakończ i podsumuj</button><button class="btn danger" data-act="am-drop">Odrzuć i wyjdź</button><button class="btn secondary" data-act="modal-close">Wróć</button></div>`); return; }
+    if(CAL.state==="idle"){ calLeave(); return; } openModal(`<h2>Zakończyć trening?</h2><div class="sub">${CAL.sets.length} ${plural(CAL.sets.length,"seria","serie","serii")} · ${fmt(CAL.elapsed)}</div><div class="stack"><button class="btn" data-act="cal-finish">Zakończ i podsumuj</button><button class="btn danger" data-act="cal-drop">Odrzuć i wyjdź</button><button class="btn secondary" data-act="modal-close">Wróć do treningu</button></div>`); },
   "cal-finish":()=>{ closeModal(); calFinish(); },
   "cal-drop":()=>calLeave(),
   "cal-save":()=>calSave(),
@@ -1241,6 +1341,7 @@ const ACT={
 const FIELD={
   "d-rounds":inp=>{ editSet(view.setId,{rounds:num(inp)}); renderDetail(); },
   "d-kg":inp=>{ editSet(view.setId,{kg:num(inp)}); renderDetail(); },
+  "d-time":inp=>{ editSet(view.setId,{time:num(inp)*60}); renderDetail(); },
   "d-item":inp=>{ editSetItem(view.setId,+inp.dataset.idx,num(inp)); renderDetail(); },
   "c-rounds":inp=>{ C.rounds=num(inp); renderCreatorParts(); },
   "c-kg":inp=>{ C.kg=num(inp); renderCreatorParts(); },
