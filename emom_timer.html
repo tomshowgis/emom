@@ -217,7 +217,7 @@
     </header>
     <div class="minute" id="minute">Gotowy?</div>
     <div class="name" id="name">EMOM</div>
-    <div class="reps" id="reps"></div>
+    <div class="reps" id="reps" data-act="t-reps" role="button" style="cursor:pointer"></div>
     <div class="clock" id="clock"><span id="sec">60</span></div>
     <div class="phase" id="phase"></div>
     <div class="next" id="next"></div>
@@ -467,15 +467,24 @@ const segLen=(sg,slot)=>seqOf([sg],slot).length;
 const roundsDoneOf=(seq,mins,baseLen)=>Math.round(seq.slice(0,mins).filter(it=>it.seg===0&&!it.roundRest).length/Math.max(1,baseLen)*10)/10;
 function entrySegs(e){ return e.segs||[{items:e.items||[],rounds:e.rounds||1,label:null}]; }
 function entrySeq(e){ return seqOf(entrySegs(e),e.slot||60).slice(0,e.minutes==null?undefined:e.minutes); }
+/* repsOf(slot,it,m) / kgOf(slot,m): m = indeks minuty (null = wartość reprezentatywna dla ćwiczenia).
+   Minuty, w których powtórzenia lub ciężar różnią się od wartości ćwiczenia, trafiają do e.perMin. */
 function makeEntry(p,repsOf,mins,secs,complete,dateIso,kgOf){
-  kgOf=kgOf||(()=>p.kg); const slot=p.slot||60, seq=seqOf(p.segs,slot); let reps=0,vol=0;
-  for(let m=0;m<Math.min(mins,seq.length);m++){ const it=seq[m]; if(it.rest) continue; const r=repsOf(it.slot,it); if(r==null) continue; reps+=r; if(!it.bw) vol+=r*(kgOf(it.slot)||0); }
-  const base=p.segs[0], baseLen=base.items.length||1;
+  kgOf=kgOf||(()=>p.kg); const slot=p.slot||60, seq=seqOf(p.segs,slot); let reps=0,vol=0; const perMin={};
   const segs=p.segs.map((sg,si)=>({label:sg.label||null,rounds:sg.rounds,cut:sg.cut==null?null:sg.cut,roundRest:sg.roundRest||0,
-    items:sg.items.map((it,i)=>({id:it.id,name:it.name,side:it.side||null,reps:it.rest?null:repsOf(`${si}:${i}`,it),work:it.work==null?null:it.work,bw:!!it.bw,rest:!!it.rest,kg:(it.rest||it.bw)?null:kgOf(`${si}:${i}`)}))}));
-  return { id:Date.now(), date:dateIso, setId:p.setId||null, name:p.name, rounds:base.rounds, roundsDone:roundsDoneOf(seq,mins,baseLen),
+    items:sg.items.map((it,i)=>({id:it.id,name:it.name,side:it.side||null,reps:it.rest?null:repsOf(`${si}:${i}`,it,null),work:it.work==null?null:it.work,bw:!!it.bw,rest:!!it.rest,kg:(it.rest||it.bw)?null:kgOf(`${si}:${i}`,null)}))}));
+  for(let m=0;m<Math.min(mins,seq.length);m++){ const it=seq[m]; if(it.rest||it.roundRest) continue; const r=repsOf(it.slot,it,m), kg=it.bw?0:(kgOf(it.slot,m)||0);
+    const [si,i]=it.slot.split(":").map(Number), ref=segs[si].items[i]; const d={}; if(r!==ref.reps) d.reps=r; if(!it.bw&&kg!==ref.kg) d.kg=kg; if(Object.keys(d).length) perMin[m]=d;
+    if(r==null) continue; reps+=r; if(!it.bw) vol+=r*kg; }
+  const base=p.segs[0], baseLen=base.items.length||1;
+  const e={ id:Date.now(), date:dateIso, setId:p.setId||null, name:p.name, rounds:base.rounds, roundsDone:roundsDoneOf(seq,mins,baseLen),
     minutes:mins, seconds:secs, kg:p.kg, complete, reps, volume:vol, slot:p.slot||60, segs, items:segs[0].items };
+  if(Object.keys(perMin).length) e.perMin=perMin; return e;
 }
+/* statystyki ćwiczenia (slot) w zapisanym wpisie: listy powtórzeń i kg po minutach */
+function entryExStats(e,slot){ const seq=entrySeq(e), reps=[], kgs=[]; seq.forEach((it,m)=>{ if(it.slot!==slot||it.rest) return; const pm=(e.perMin||{})[m]||{}; const [si,i]=slot.split(":").map(Number), ref=entrySegs(e)[si].items[i];
+  reps.push(pm.reps!=null?pm.reps:ref.reps); if(!it.bw) kgs.push(pm.kg!=null?pm.kg:(ref.kg!=null?ref.kg:e.kg)); }); return {reps,kgs}; }
+const uniq=a=>[...new Set(a.filter(x=>x!=null))];
 function stepper(field,value,o){
   o=o||{}; const idx=o.idx==null?"":` data-idx="${o.idx}"`;
   return `<div class="stepper"><button data-act="step" data-d="-1" aria-label="Mniej">−</button>`+
@@ -682,7 +691,10 @@ function renderLog(){
       const exMin=entrySeq(e).filter(it=>it.seg>0).length;
       h+=`<div class="ds">${rdWord(e.rounds)} planowane · zaliczone ${e.roundsDone} · ${(e.slot||60)===60?`${e.minutes} min pracy`:`${e.minutes} ${plural(e.minutes,"blok","bloki","bloków")} × ${e.slot} s`}${exMin?` (w tym dogrywka ${exMin})`:""}</div>`;
       entrySegs(e).forEach((sg,si)=>{ if(si>0) h+=`<div class="ds" style="margin-top:8px;color:var(--work);font-weight:700">${esc(sg.label||"Dogrywka")} · ${rdWord(sg.rounds)}</div>`;
-        sg.items.forEach(it=>{ if(it.rest) return; h+=`<div class="row" style="padding:6px 0"><div class="grow nm" style="font-size:15px">${esc(it.name)}${it.side?` <span class="side">${it.side==="L"?"lewa":"prawa"}</span>`:""}</div><div class="ds">${it.reps!=null?`${it.reps} powt./min`:(it.work!=null?`${it.work} s`:"")}${it.bw?" · bez kettla":(it.kg!=null&&it.kg!==e.kg?` · ${it.kg} kg`:"")}</div></div>`; }); });
+        sg.items.forEach((it,i)=>{ if(it.rest) return; const st=entryExStats(e,`${si}:${i}`), ur=uniq(st.reps), uk=uniq(st.kgs);
+          const repsTxt=it.reps!=null?(ur.length>1?`${st.reps.join("/")} powt.`:`${it.reps} powt./min`):(it.work!=null?`${it.work} s`:"");
+          const kgTxt=it.bw?" · bez kettla":(uk.length>1?` · ${st.kgs.join("/")} kg`:(it.kg!=null&&it.kg!==e.kg?` · ${it.kg} kg`:""));
+          h+=`<div class="row" style="padding:6px 0"><div class="grow nm" style="font-size:15px">${esc(it.name)}${it.side?` <span class="side">${it.side==="L"?"lewa":"prawa"}</span>`:""}</div><div class="ds">${repsTxt}${kgTxt}</div></div>`; }); });
       h+=`<div class="row" style="margin-top:8px"><button class="btn secondary small grow" data-act="garmin" data-id="${e.id}">Wyślij do Garmin (FIT)</button><button class="btn danger small" data-act="log-delete" data-id="${e.id}">Usuń</button></div></div>`; }
     h+=`</div>`; });
   h+=`<div class="h2">Kopia zapasowa</div><div class="card"><div class="sub">Dziennik, własne sety i ustawienia są zapisane tylko w tej przeglądarce lub aplikacji na ekranie początkowym. Zrób kopię przed usunięciem aplikacji z ekranu, zmianą telefonu lub czyszczeniem danych.</div>
@@ -743,19 +755,19 @@ function roundLabel(it){
   if(it.seg===0) return `Runda <b>${it.round}</b> / ${it.rounds}`;
   return `<b>Dogrywka</b>${it.rounds>1?` ${it.round} / ${it.rounds}`:""}`;
 }
-function currentItem(){
-  if(!plan||state==="done") return null;
-  const seq=plan.seq; if(state==="idle") return seq[0];
-  const idx=elapsed<prepEnd?Math.round(prepEnd/SL()):Math.floor(elapsed/SL());
-  return seq[Math.min(seq.length-1,idx)];
-}
+function curIdx(){ if(state==="idle") return 0; const idx=elapsed<prepEnd?Math.round(prepEnd/SL()):Math.floor(elapsed/SL()); return Math.min(N()-1,idx); }
+function currentItem(){ if(!plan||state==="done") return null; return plan.seq[curIdx()]; }
 function currentVideo(){ const it=currentItem(); return {vid:(it&&it.src)||plan.src||null, ex:it&&it.src?it.name:null}; }
-function kgFor(slot){ return (plan.kgSlot&&plan.kgSlot[slot]!=null)?plan.kgSlot[slot]:plan.kg; }
+/* ciężar i powtórzenia liczone per minuta: kgMin/repsMin (ta minuta) → kgSlot/repsEdit (ćwiczenie) → domyślne */
+function kgAt(m){ const it=plan.seq[m]; if(!it) return plan.kg; if(plan.kgMin&&plan.kgMin[m]!=null) return plan.kgMin[m]; if(plan.kgSlot&&plan.kgSlot[it.slot]!=null) return plan.kgSlot[it.slot]; return plan.kg; }
+function repsAt(m){ const it=plan.seq[m]; if(!it) return null; if(plan.repsMin&&plan.repsMin[m]!=null) return plan.repsMin[m]; if(plan.repsEdit&&plan.repsEdit[it.slot]!=null) return plan.repsEdit[it.slot]; return it.reps; }
+function setFromNow(map,val){ const i=curIdx(), sl=plan.seq[i].slot; for(let m=i;m<N();m++) if(plan.seq[m].slot===sl) map[m]=val; }
+function liveLabel(it,m){ const r=repsAt(m); if(it.reps==null||r===it.reps) return it.label; return it.label.replace(/^.*?powt\./, `${r} powt.`); }
 function tileValues(cur){ const v=(DB.bells||[]).filter(x=>x!=null); if(cur!=null&&!v.includes(cur)) v.push(cur); return [...new Set(v)].sort((a,b)=>a-b); }
 let tilesKey="";
 function renderTiles(){
   const el=$("tiles"), it=currentItem(); const show=!!(it&&!it.rest&&!it.bw&&state!=="done");
-  const cur=show?kgFor(it.slot):null, key=show?`${it.slot}|${cur}|${(DB.bells||[]).join(",")}`:"";
+  const cur=show?kgAt(curIdx()):null, key=show?`${curIdx()}|${cur}|${(DB.bells||[]).join(",")}`:"";
   if(key===tilesKey) return; tilesKey=key;
   if(!show){ el.hidden=true; el.innerHTML=""; return; }
   const vals=tileValues(cur); el.hidden=false;
@@ -803,7 +815,7 @@ function renderTimer(){
   $("roundlbl").innerHTML=roundLabel(it);
   $("total").textContent=fmt(Math.max(0,total-e));
   $("minute").textContent=`${sl===60?"Minuta":"Blok"} ${idx+1} / ${n}`+(sl!==60?` · ${sl} s`:"")+(it.seg>0?" · dogrywka":"");
-  $("name").textContent=sideName(it); $("reps").textContent=it.label;
+  $("name").textContent=sideName(it); $("reps").textContent=liveLabel(it,idx)+(it.reps!=null?" ✎":"");
   $("sec").textContent=Math.ceil(left);
   const resting=it.rest||(it.work!=null&&inMin>=it.work);
   $("phase").textContent=it.rest?"Odpocznij – za chwilę dalej"
@@ -845,7 +857,7 @@ function resetRun(){ cancelAnimationFrame(raf); stopSilent(); plan=JSON.parse(pl
 function startTimer(p){
   plan=JSON.parse(JSON.stringify(p));
   if(!plan.segs) plan.segs=[{items:plan.items,rounds:plan.rounds,label:null}];
-  delete plan.seq; plan.repsEdit={}; plan.kgSlot={}; tilesKey="";
+  delete plan.seq; plan.repsEdit={}; plan.kgSlot={}; plan.repsMin={}; plan.kgMin={}; tilesKey="";
   DB.last={plan:JSON.parse(JSON.stringify(plan)),at:new Date().toISOString()}; DB.kg=plan.kg; save();
   plan.seq=seqOf(plan.segs,plan.slot); planBase=JSON.stringify(plan);
   cancelAnimationFrame(raf); state="idle"; elapsed=0; prepEnd=0; lastWhole=null;
@@ -877,22 +889,28 @@ $("reset").addEventListener("click",resetRun);
 let SUM=null;
 function openSummary(complete){
   const n=N(), mins=complete?n:doneMinutes(), secs=complete?n*SL():Math.floor(Math.max(elapsed,prepEnd));
-  const reps={}; plan.seq.forEach(it=>{ if(!(it.slot in reps)) reps[it.slot]=(plan.repsEdit&&plan.repsEdit[it.slot]!=null)?plan.repsEdit[it.slot]:it.reps; });
-  SUM={complete,mins,secs,kg:plan.kg,reps,kgSlot:Object.assign({},plan.kgSlot||{})};
+  const repsMin={}, kgMin={}; for(let m=0;m<n;m++){ const it=plan.seq[m]; if(!it||it.rest) continue; repsMin[m]=repsAt(m); kgMin[m]=it.bw?null:kgAt(m); }
+  SUM={complete,mins,secs,kg:plan.kg,repsMin,kgMin,open:{}};
   renderSummary();
 }
-const sumKg=slot=>(SUM.kgSlot[slot]!=null?SUM.kgSlot[slot]:SUM.kg);
-function sumTotals(){ let reps=0,vol=0; for(let m=0;m<SUM.mins;m++){ const it=plan.seq[m]; if(!it||it.rest) continue; const r=SUM.reps[it.slot]; if(r==null) continue; reps+=r; if(!it.bw) vol+=r*sumKg(it.slot); } return {reps,vol}; }
+const sumMinutes=slot=>{ const ms=[]; for(let m=0;m<SUM.mins;m++){ const it=plan.seq[m]; if(it&&it.slot===slot&&!it.rest) ms.push(m); } return ms; };
+const sumRepsOf=(slot,m)=>{ if(m!=null) return SUM.repsMin[m]; const ms=sumMinutes(slot); if(ms.length) return SUM.repsMin[ms[0]]; const it=plan.seq.find(x=>x.slot===slot); return it?repsAt(plan.seq.indexOf(it)):null; };
+const sumKgOf=(slot,m)=>{ if(m!=null) return SUM.kgMin[m]!=null?SUM.kgMin[m]:SUM.kg; const ms=sumMinutes(slot); if(ms.length) return SUM.kgMin[ms[0]]!=null?SUM.kgMin[ms[0]]:SUM.kg; const it=plan.seq.find(x=>x.slot===slot); return it?kgAt(plan.seq.indexOf(it)):SUM.kg; };
+function sumTotals(){ let reps=0,vol=0; for(let m=0;m<SUM.mins;m++){ const it=plan.seq[m]; if(!it||it.rest) continue; const r=SUM.repsMin[m]; if(r==null) continue; reps+=r; if(!it.bw) vol+=r*sumKgOf(it.slot,m); } return {reps,vol}; }
 function renderSummary(){
   const t=sumTotals(), base=plan.segs[0], baseLen=base.items.length, baseTot=segLen(base,SL());
   const rd=roundsDoneOf(plan.seq,SUM.mins,baseLen), ex=Math.max(0,SUM.mins-baseTot);
   const rows=plan.segs.map((sg,si)=>(si>0?`<div class="h2" style="color:var(--work)">${esc(sg.label||"Dogrywka")} · ${rdWord(sg.rounds)}</div>`:"")+
-    sg.items.map((it,i)=>{ if(it.rest) return ""; const slot=`${si}:${i}`;
-      return `<div class="exrow"><div class="row"><div class="grow"><div class="nm">${esc(it.name)}${it.side?` <span class="side">${it.side==="L"?"lewa":"prawa"}</span>`:""}</div><div class="ds">${esc(it.label)}${it.bw?" · bez kettla":` · <button class="kgchip" data-act="sum-kg-cycle" data-slot="${slot}" aria-label="Zmień ciężar">${sumKg(slot)} kg</button>`}</div></div>${it.reps==null?`<div class="ds">na czas</div>`:stepper("sum-reps",SUM.reps[slot],{step:1,min:0,max:200,idx:slot})}</div></div>`; }).join("")).join("");
+    sg.items.map((it,i)=>{ if(it.rest) return ""; const slot=`${si}:${i}`, ms=sumMinutes(slot);
+      const rv=ms.map(m=>SUM.repsMin[m]), kv=ms.map(m=>sumKgOf(slot,m)), mixed=uniq(rv).length>1||(!it.bw&&uniq(kv).length>1), open=SUM.open[slot]||mixed;
+      const kgTxt=it.bw?"":(uniq(kv).length>1?`${uniq(kv).join("/")} kg`:`${sumKgOf(slot,null)} kg`);
+      let h=`<div class="exrow"><div class="row"><div class="grow"><div class="nm">${esc(it.name)}${it.side?` <span class="side">${it.side==="L"?"lewa":"prawa"}</span>`:""}</div><div class="ds">${esc(it.label)}${it.bw?" · bez kettla":` · <button class="kgchip" data-act="sum-kg-cycle" data-slot="${slot}" aria-label="Zmień ciężar we wszystkich rundach">${kgTxt}</button>`}${ms.length>1&&it.reps!=null?` · <button class="kgchip" data-act="sum-rounds" data-slot="${slot}">${open?"▴ rundy":"▾ wg rund"}</button>`:""}</div></div>${it.reps==null?`<div class="ds">na czas</div>`:stepper("sum-reps",sumRepsOf(slot,null),{step:1,min:0,max:200,idx:slot})}</div>`;
+      if(open&&it.reps!=null) h+=ms.map(m=>{ const q=plan.seq[m]; return `<div class="row ctl" style="margin-top:6px"><div class="grow ds">${q.seg>0?"dogrywka · ":""}runda ${q.round}${it.bw?"":` · <button class="kgchip" data-act="sum-kg-m" data-m="${m}" style="min-height:26px;font-size:12px">${sumKgOf(slot,m)} kg</button>`}</div>${stepper("sum-reps-m",SUM.repsMin[m],{step:1,min:0,max:200,idx:m})}</div>`; }).join("");
+      return h+`</div>`; }).join("")).join("");
   const html=`<h2>${SUM.complete?"Zrobione! 💪":"Trening przerwany"}</h2>
     <div class="sub">${esc(plan.name)} · ${fmt(SUM.secs)} · ${SUM.mins} z ${N()} ${SL()===60?"minut":"bloków"} · ${rd} z ${base.rounds} rund${ex?` + dogrywka ${ex}`:""}</div>
     <div class="row" style="margin-top:14px"><div class="grow"><div class="nm">Kettlebell</div><div class="ds">domyślny; przy ćwiczeniu dotknij „kg”, by zmienić</div></div>${stepper("sum-kg",SUM.kg,{unit:"kg",step:2,min:0,max:60})}</div>
-    <div class="h2">Powtórzenia na ${SL()===60?"minutę":"blok"} – popraw, jeśli było inaczej</div>${rows}
+    <div class="h2">Powtórzenia na ${SL()===60?"minutę":"blok"} – popraw, jeśli było inaczej</div><div class="ds" style="margin:-6px 0 8px">Stepper przy ćwiczeniu zmienia wszystkie rundy; „wg rund” pozwala poprawić każdą osobno.</div>${rows}
     <div class="stat" style="margin-top:14px"><div><b>${nf(t.reps)}</b><span>powtórzeń</span></div><div><b>${nf(t.vol)}</b><span>kg przerzucone</span></div><div><b>${fmt(SUM.secs)}</b><span>czas</span></div></div>
     <div class="h2">Chcesz zrobić więcej?</div>
     <div class="row">${SUM.complete?`<button class="btn secondary small grow" data-act="sum-more-round">Jeszcze 1 runda</button>`:""}<button class="btn secondary small grow" data-act="sum-add-ex">${SUM.complete?"Dodaj ćwiczenia":"Dodaj ćwiczenia zamiast reszty"}</button></div>
@@ -901,10 +919,15 @@ function renderSummary(){
 }
 function saveSummary(){
   plan.kg=SUM.kg;
-  DB.log.unshift(makeEntry(plan,slot=>SUM.reps[slot],SUM.mins,SUM.secs,SUM.complete,startedAt||new Date().toISOString(),slot=>sumKg(slot)));
+  DB.log.unshift(makeEntry(plan,(slot,it,m)=>sumRepsOf(slot,m),SUM.mins,SUM.secs,SUM.complete,startedAt||new Date().toISOString(),(slot,m)=>sumKgOf(slot,m)));
   DB.kg=SUM.kg; save(); closeModal(); leaveTimer(); toast("Zapisano w dzienniku");
 }
-function keepRepsEdits(){ plan.repsEdit=Object.assign({},SUM.reps); plan.kg=SUM.kg; plan.kgSlot=Object.assign({},SUM.kgSlot); tilesKey=""; }
+/* przed kontynuacją: zachowaj poprawki per minuta, a ostatnie wartości ćwiczenia zrób domyślnymi dla nowych rund */
+function keepRepsEdits(){
+  plan.kg=SUM.kg; plan.repsMin=Object.assign({},SUM.repsMin); plan.kgMin={}; plan.repsEdit={}; plan.kgSlot={};
+  for(let m=0;m<SUM.mins;m++){ const it=plan.seq[m]; if(!it||it.rest) continue; if(!it.bw){ plan.kgMin[m]=sumKgOf(it.slot,m); plan.kgSlot[it.slot]=plan.kgMin[m]; } if(SUM.repsMin[m]!=null) plan.repsEdit[it.slot]=SUM.repsMin[m]; }
+  tilesKey="";
+}
 function abortTimer(){
   if(state==="idle"||state==="done"){ leaveTimer(); return; }
   if(state!=="paused") pauseRun();
@@ -1199,7 +1222,7 @@ function buildFit(e){
     if(end>t) enc.msg(3,[end]);
   } else {
     const sl=e.slot||60, seq=seqOf(entrySegs(e),sl), mins=Math.min(e.minutes||0,seq.length,Math.floor(total/sl));
-    for(let m=0;m<mins;m++){ const it=seq[m]||{rest:true}, t0=start+m*sl, kg=(it.kg!=null?it.kg:(e.kg||0));
+    for(let m=0;m<mins;m++){ const it0=seq[m]||{rest:true}, pm=(e.perMin||{})[m]||{}, it=pm.reps!=null?Object.assign({},it0,{reps:pm.reps}):it0, t0=start+m*sl, kg=pm.kg!=null?pm.kg:(it.kg!=null?it.kg:(e.kg||0));
       if(it.rest){ set(t0,sl,null); }
       else if(it.work!=null&&it.work<sl){ set(t0,it.work,it,kg); set(t0+it.work,sl-it.work,null); }
       else set(t0,sl,it,kg);
@@ -1319,12 +1342,20 @@ const ACT={
   "t-sound":()=>{ unlockAudio(); beepDouble(); setTimeout(beepCount,700); setTimeout(beepMinute,1100); toast("Nie słychać? Wyłącz tryb cichy i podgłoś telefon"); },
   "t-kg":d=>{ const kg=+d.kg, it=currentItem(); if(navigator.vibrate) navigator.vibrate(30);
       if(state==="idle"||!it){ plan.kg=kg; DB.kg=kg; if(DB.last&&DB.last.plan) DB.last.plan.kg=kg; save(); planBase=JSON.stringify(plan); }
-      else { plan.kgSlot=plan.kgSlot||{}; plan.kgSlot[it.slot]=kg; }
+      else { plan.kgMin=plan.kgMin||{}; setFromNow(plan.kgMin,kg); }
       tilesKey=""; renderTimer(); },
+  "t-reps":()=>{ const it=currentItem(); if(!it||it.rest||it.reps==null||state==="done") return; const i=curIdx();
+      openModal(`<h2>Powtórzenia: ${esc(it.name)}</h2><div class="sub">${SL()===60?"Minuta":"Blok"} ${i+1} · runda ${it.round} · plan: ${esc(it.label)}</div>
+        <div class="row" style="margin-top:14px"><div class="grow nm">Zrobione / do zrobienia</div>${stepper("t-reps-val",repsAt(i),{step:1,min:0,max:200})}</div>
+        <div class="stack"><button class="btn" data-act="t-reps-apply" data-scope="fwd">Zapisz – ta i kolejne rundy</button><button class="btn secondary" data-act="t-reps-apply" data-scope="one">Zapisz – tylko ta ${SL()===60?"minuta":"blok"}</button><button class="btn secondary" data-act="modal-close">Anuluj</button></div>`); },
+  "t-reps-apply":d=>{ const inp=$("sheet").querySelector('input[data-field="t-reps-val"]'); if(!inp) return; const v=num(inp); plan.repsMin=plan.repsMin||{};
+      if(d.scope==="fwd") setFromNow(plan.repsMin,v); else plan.repsMin[curIdx()]=v; closeModal(); renderTimer(); toast(`Zapisano ${v} powt.`); },
   "bells":()=>openBells(),
   "bell-add":()=>{ DB.bells=DB.bells||[]; const last=DB.bells[DB.bells.length-1]||6; DB.bells.push(Math.min(60,last+2)); save(); tilesKey=""; openBells(); if(view.screen==="detail") renderDetail(); },
   "bell-del":d=>{ if(DB.bells.length<=1) return; DB.bells.splice(+d.idx,1); save(); tilesKey=""; openBells(); if(view.screen==="detail") renderDetail(); },
-  "sum-kg-cycle":d=>{ const vals=tileValues(SUM.kg), cur=sumKg(d.slot), i=vals.indexOf(cur); const next=vals[(i+1)%vals.length]; if(next===SUM.kg) delete SUM.kgSlot[d.slot]; else SUM.kgSlot[d.slot]=next; renderSummary(); },
+  "sum-kg-cycle":d=>{ const vals=tileValues(SUM.kg), cur=sumKgOf(d.slot,null), i=vals.indexOf(cur); const next=vals[(i+1)%vals.length]; sumMinutes(d.slot).forEach(m=>{ SUM.kgMin[m]=next; }); renderSummary(); },
+  "sum-kg-m":d=>{ const m=+d.m, vals=tileValues(SUM.kg), cur=SUM.kgMin[m]!=null?SUM.kgMin[m]:SUM.kg, i=vals.indexOf(cur); SUM.kgMin[m]=vals[(i+1)%vals.length]; renderSummary(); },
+  "sum-rounds":d=>{ SUM.open[d.slot]=!(SUM.open[d.slot]); renderSummary(); },
   "t-video":()=>{ const cv=currentVideo(); if(!cv.vid) return; if(state==="run"||state==="prep") pauseRun(); openVideo(cv.vid,null,cv.ex); },
   "abort-save":()=>{ closeModal(); openSummary(false); },
   "abort-drop":()=>{ closeModal(); leaveTimer(); },
@@ -1346,11 +1377,13 @@ const FIELD={
   "c-rounds":inp=>{ C.rounds=num(inp); renderCreatorParts(); },
   "c-kg":inp=>{ C.kg=num(inp); renderCreatorParts(); },
   "c-item":inp=>{ const it=C.items[+inp.dataset.idx]; const v=num(inp); if(it.work!=null) it.work=v; else { it.reps=v; it.range=null; } renderCreatorParts(); },
-  "sum-kg":inp=>{ SUM.kg=num(inp); renderSummary(); },
+  "sum-kg":inp=>{ const old=SUM.kg, v=num(inp); Object.keys(SUM.kgMin).forEach(m=>{ if(SUM.kgMin[m]===old) SUM.kgMin[m]=v; }); SUM.kg=v; renderSummary(); },
+  "t-reps-val":inp=>{ num(inp); },
+  "sum-reps-m":inp=>{ SUM.repsMin[+inp.dataset.idx]=num(inp); renderSummary(); },
   "cal-reps":inp=>{ const k=CAL?CAL.sets.length:0; if(k) setReps(CAL.sets[k-1],inp.dataset.g,num(inp)); if(CAL) renderCal(); },
   "cal-sum":inp=>{ setReps(CAL.sets[+inp.dataset.idx],inp.dataset.g,num(inp)); renderCalSummary(); },
   "bell":inp=>{ DB.bells=DB.bells||[8,10,20]; DB.bells[+inp.dataset.idx]=num(inp); save(); tilesKey=""; if(view.screen==="detail") renderDetail(); },
-  "sum-reps":inp=>{ SUM.reps[inp.dataset.idx]=num(inp); renderSummary(); },
+  "sum-reps":inp=>{ const v=num(inp); sumMinutes(inp.dataset.idx).forEach(m=>{ SUM.repsMin[m]=v; }); renderSummary(); },
 };
 document.addEventListener("click",e=>{
   const el=e.target.closest("[data-act]"); if(!el||el.disabled) return;
