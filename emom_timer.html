@@ -283,6 +283,7 @@ const VIDEOS = {
   "rzTj7omKIR4":{t:"5-Minute Morning Kettlebell Routine",ch:"Vadim Kettlebell"},
   "zwc-syz_Yzk":{t:"Upper Body Strength Kettlebell TABATA",ch:"Vadim Kettlebell"},
   "srXBhU9ksYo":{t:"Train Your Upper Body With One Kettlebell",ch:"Kingdom Kettlebells"},
+  "k91UizQkE2U":{t:"10 Core & Abs Kettlebell Exercises",ch:"Vadim Kettlebell"},
   "XuvxplfUF-4":{t:"Brutally Effective Beginner Kettlebell Complex – Full Body",ch:"FitDad"},
 };
 const TAGS = ["biceps","triceps","barki","klatka","plecy","brzuch","nogi","pośladki","cardio"];
@@ -333,6 +334,12 @@ const EXERCISES = [
   {id:"goblet-squat",name:"Goblet Squat",desc:"Przysiad z kettlem przy klatce; klatka wysoko, kolana na zewnątrz.",reps:10,range:"10–12",tags:["nogi","pośladki"],src:"2jyYS8B0TK8"},
   {id:"split-stance-lunge",name:"Split-Stance Lunge",desc:"Wykrok w rozkroku z kettlem trzymanym jak walizka, po 5 na stronę.",reps:10,tags:["nogi","pośladki"],src:"2jyYS8B0TK8"},
   {id:"curl-press",name:"Curl + Press",desc:"Uginanie ramion, a potem wyciśnięcie nad głowę; kontrolowany powrót.",reps:6,range:"6–8",tags:["biceps","barki"],src:"2jyYS8B0TK8"},
+  {id:"atlas-swing",name:"Atlas Swing",desc:"Wymach, w którym kettel wędruje aż nad głowę przy pełnym wyproście bioder i wraca między nogi.",reps:12,tags:["pośladki","brzuch","barki","cardio"],src:"k91UizQkE2U"},
+  {id:"side-swing-clean",name:"Side Swing Clean",desc:"Wymach jednorącz w bok i zarzut kettla na bark; po połowie powtórzeń zmiana ręki.",reps:10,range:"5 + 5",tags:["brzuch","plecy","barki"],src:"k91UizQkE2U"},
+  {id:"z-tuck",name:"Z-Tuck",desc:"Siad z uniesionymi nogami i kettlem wyciśniętym nad głowę; przyciągasz kolana do klatki, nie opuszczając ciężaru.",reps:10,tags:["brzuch","barki"],src:"k91UizQkE2U"},
+  {id:"reverse-plank-overbell",name:"Reverse Plank Overbell",desc:"Odwrócona deska; przenosisz złączone nogi nad kettlem stojącym przy stopach, raz na jedną, raz na drugą stronę.",reps:10,alt:true,bw:true,tags:["brzuch","pośladki"],src:"k91UizQkE2U"},
+  {id:"samurai-chop",name:"Samurai Chop",desc:"Cięcie kettlem od góry po skosie w dół z jednoczesnym uniesieniem kolana; po połowie powtórzeń zmiana strony.",reps:12,range:"6 + 6",tags:["brzuch","barki"],src:"k91UizQkE2U"},
+  {id:"dead-bug",name:"Dead Bug",desc:"Leżąc na plecach z kettlem wyciśniętym nad klatką prostujesz naprzemiennie nogę tuż nad podłogą; lędźwie dociśnięte.",reps:12,alt:true,tags:["brzuch"],src:"k91UizQkE2U"},
   {id:"chop",name:"Kneeling Chop",desc:"W klęku przenosisz kettla po skosie od biodra nad przeciwległy bark; po połowie powtórzeń zmiana strony.",reps:12,range:"6 + 6",tags:["brzuch","barki"],src:"srXBhU9ksYo"},
   {id:"kneeling-press",name:"Kneeling One-Arm Press",desc:"Wyciskanie jednorącz nad głowę w klęku obunóż; po połowie powtórzeń zmiana ręki.",reps:12,range:"6 + 6",tags:["barki","triceps","brzuch"],src:"srXBhU9ksYo"},
   {id:"v-sit-halo",name:"V-Sit Halo",desc:"Halo w siadzie z uniesionymi nogami – barki i brzuch pracują naraz.",reps:8,tags:["brzuch","barki"],src:"srXBhU9ksYo"},
@@ -384,6 +391,9 @@ const PRESETS = [
   {id:"p-morning5",name:"Poranna rutyna 5 min",focus:"mobilność + pompa · 10 × 30 s bez przerwy (lekki kettel)",src:"rzTj7omKIR4",rounds:1,slot:30,items:[
     I("around-the-world",null,null,{work:30}),I("upright-row",null,null,{work:30}),I("halo",null,null,{work:30}),I("front-to-back",null,null,{work:30}),I("russian-swing",null,null,{work:30}),
     I("romanian-deadlift",null,null,{work:30}),I("swing-clean",null,null,{work:30}),I("goblet-back-lunge-alt",null,null,{work:30}),I("goblet-shoulder-press",null,null,{work:30}),I("squatted-curl",null,null,{work:30})]},
+  {id:"p-core10",name:"Core & Abs 10",focus:"brzuch i core · 10 ćwiczeń z filmu, jedno na minutę",src:"k91UizQkE2U",rounds:2,items:[
+    I("atlas-swing",12),I("side-swing-clean",10,"5 + 5"),I("z-tuck",10),I("reverse-plank-overbell",10),I("samurai-chop",12,"6 + 6"),
+    I("side-drags",14,"12–16"),I("around-the-slings",16),I("overhead-march",null,null,{work:45}),I("extended-halo",12),I("dead-bug",12)]},
   /* tabata: 20 s pracy / 10 s przerwy w bloku 30 s, przerwa między rundami */
   {id:"t-upper",kind:"tabata",name:"Tabata · Upper Body Strength",focus:"barki + biceps · 20 s pracy / 10 s przerwy · 6 ćwiczeń × 5 rund",src:"zwc-syz_Yzk",rounds:5,slot:30,roundRest:60,items:[
     I("front-to-back",null,null,{work:20}),I("extended-halo",null,null,{work:20}),I("upright-row",null,null,{work:20}),
@@ -1172,7 +1182,7 @@ const FIT_CAT={ "biceps-curl":7,"goblet-curl":7,"squatted-curl":7,"curl-press":7
   "overhead-march":3,"russian-swing":12,"alt-swing":12,"american-swing":12,"swing-clean-push-press":18,"dead-clean-push-press-alt":18,
   "goblet-clean-squat":28,"goblet-squat":28,"thruster":28,"bent-row-alt":23,"bent-over-row":23,"upright-row":23,"sumo-high-pull":23,"high-pull-alt":23,"high-pull-complex":29,
   "goblet-back-lunge-alt":17,"front-rack-lunge":17,"split-stance-lunge":17,"kneeling-goblet-press":24,"goblet-shoulder-press":24,"push-press":24,"front-to-back":24,
-  "chop":4,"kneeling-press":24,"v-sit-halo":5,"knee-elbow-pushup":22,"extended-halo":5,"around-the-world":5,"swing-clean":18,"leg-raise":16,"russian-twist":5,"crunch":6,"hollow-body":5,"romanian-deadlift":8,"burpee":29,"goblet-floor-press":0,"horizontal-press-twist":0,"pushup":22,"front-raise":14,"goblet-front-side-raise-alt":14 };
+  "atlas-swing":12,"side-swing-clean":18,"z-tuck":5,"reverse-plank-overbell":19,"samurai-chop":4,"dead-bug":5,"chop":4,"kneeling-press":24,"v-sit-halo":5,"knee-elbow-pushup":22,"extended-halo":5,"around-the-world":5,"swing-clean":18,"leg-raise":16,"russian-twist":5,"crunch":6,"hollow-body":5,"romanian-deadlift":8,"burpee":29,"goblet-floor-press":0,"horizontal-press-twist":0,"pushup":22,"front-raise":14,"goblet-front-side-raise-alt":14 };
 function fitCrc(bytes,len){
   const T=[0x0000,0xCC01,0xD801,0x1400,0xF001,0x3C00,0x2800,0xE401,0xA001,0x6C00,0x7800,0xB401,0x5000,0x9C01,0x8801,0x4400]; let c=0;
   for(let i=0;i<len;i++){ const b=bytes[i]; let t=T[c&0xF]; c=(c>>4)&0x0FFF; c=c^t^T[b&0xF]; t=T[c&0xF]; c=(c>>4)&0x0FFF; c=c^t^T[(b>>4)&0xF]; }
