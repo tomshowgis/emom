@@ -361,6 +361,7 @@ const EXMAP = Object.fromEntries(EXERCISES.map(e=>[e.id,e]));
 const CAL_EX={
   "cal-pullup":{name:"Podciągnięcia",desc:"Serie podciągnięć na drążku – ile dasz radę, przerwa według uznania.",fit:21,def:5,grips:[["over","nachwyt"],["under","podchwyt"]]},
   "cal-pushup":{name:"Pompki",desc:"Serie pompek – ile dasz radę, przerwa według uznania.",fit:22,def:10},
+  "cal-plank":{name:"Plank",desc:"Deska trzymana na czas – zegar mierzy sekundy serii, przerwa według uznania.",fit:19,def:45,timed:true},
 };
 const CAL_RESTS=[60,90,120,180];
 
@@ -573,7 +574,7 @@ function renderHome(){
   h+=`<div class="h2">Tabata</div>`+PRESETS.filter(s=>s.kind==="tabata").map(setCard).join("");
   h+=`<div class="h2">Obwody na czas</div>`+PRESETS.filter(s=>s.kind==="amrap").map(setCard).join("");
   h+=`<div class="h2">Kalistenika</div>`+Object.entries(CAL_EX).map(([id,ex])=>{ const last=DB.log.find(e=>e.kind==="cal"&&e.sets&&e.sets.some(x=>x.ex===id));
-    return `<div class="card tap" data-act="open-cal" data-ex="${id}"><h3>${esc(ex.name)}</h3><div class="sub">Liczą się powtórzenia w seriach. Stoper mierzy tylko cały trening i przerwy.</div>${last?`<div class="sub">ostatnio: ${last.rounds} ${plural(last.rounds,"seria","serie","serii")} · ${nf(last.reps)} powt. · ${when(last.date)}</div>`:""}</div>`; }).join("");
+    return `<div class="card tap" data-act="open-cal" data-ex="${id}"><h3>${esc(ex.name)}</h3><div class="sub">${ex.timed?"Serie na czas: zegar mierzy sekundy trzymania w każdej serii i przerwy.":"Liczą się powtórzenia w seriach. Stoper mierzy tylko cały trening i przerwy."}</div>${last?`<div class="sub">ostatnio: ${last.rounds} ${plural(last.rounds,"seria","serie","serii")} · ${ex.timed?fmt(last.hold||0):nf(last.reps)+" powt."} · ${when(last.date)}</div>`:""}</div>`; }).join("");
   h+=`<div class="h2">Zestawy na partie ciała</div>`+PRESETS.filter(s=>!s.src).map(setCard).join("");
   const vOpen=!!(DB.ui&&DB.ui.videos);
   h+=`<button class="h2 tap" data-act="toggle-videos" aria-expanded="${vOpen}">Filmy źródłowe (${Object.keys(VIDEOS).length}) <span>${vOpen?"▾ zwiń":"▸ rozwiń"}</span></button>`;
@@ -693,10 +694,10 @@ function renderLog(){
   list.forEach(e=>{ const d=new Date(e.date), open=LOG.open===e.id;
     h+=`<div class="card tap" data-act="log-open" data-id="${e.id}"><div class="row"><div class="grow"><h3>${esc(e.name)}</h3>
       <div class="sub">${d.toLocaleDateString("pl-PL",{weekday:"short",day:"numeric",month:"short",year:"numeric"})} · ${d.toLocaleTimeString("pl-PL",{hour:"2-digit",minute:"2-digit"})}</div>
-      <div class="sub">${e.kind==="cal"?`${fmt(e.seconds)} · ${e.rounds} ${plural(e.rounds,"seria","serie","serii")} · <b>${nf(e.reps)} powt.</b>`:`${fmt(e.seconds)} · ${e.kg} kg · ${nf(e.reps)} powt. · <b>${nf(e.volume)} kg</b>${e.complete?"":" · przerwany"}`}</div></div>
+      <div class="sub">${e.kind==="cal"?`${fmt(e.seconds)} · ${e.rounds} ${plural(e.rounds,"seria","serie","serii")}${e.reps?` · <b>${nf(e.reps)} powt.</b>`:""}${e.hold?` · <b>${fmt(e.hold)}</b> trzymania`:""}`:`${fmt(e.seconds)} · ${e.kg} kg · ${nf(e.reps)} powt. · <b>${nf(e.volume)} kg</b>${e.complete?"":" · przerwany"}`}</div></div>
       <span class="num" style="width:auto">${open?"▲":"▼"}</span></div>`;
     if(open&&e.kind==="cal"){ h+=`<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">`;
-      (e.sets||[]).forEach((st,i)=>{ h+=`<div class="row" style="padding:6px 0"><div class="grow nm" style="font-size:15px">Seria ${i+1} · ${esc(st.name||"")}</div><div class="ds">${st.reps} powt.${(CAL_EX[st.ex]||{}).grips&&(st.over||st.under)?` (${[["over","nachwyt"],["under","podchwyt"]].filter(([k])=>st[k]>0).map(([k,nm])=>`${st[k]} ${nm}`).join(" + ")})`:""}${st.rest?` · przerwa ${fmt(st.rest)}`:""}</div></div>`; });
+      (e.sets||[]).forEach((st,i)=>{ h+=`<div class="row" style="padding:6px 0"><div class="grow nm" style="font-size:15px">Seria ${i+1} · ${esc(st.name||"")}</div><div class="ds">${st.hold!=null?`${st.hold} s`:`${st.reps} powt.`}${(CAL_EX[st.ex]||{}).grips&&(st.over||st.under)?` (${[["over","nachwyt"],["under","podchwyt"]].filter(([k])=>st[k]>0).map(([k,nm])=>`${st[k]} ${nm}`).join(" + ")})`:""}${st.rest?` · przerwa ${fmt(st.rest)}`:""}</div></div>`; });
       h+=`<div class="row" style="margin-top:8px"><button class="btn secondary small grow" data-act="garmin" data-id="${e.id}">Wyślij do Garmin (FIT)</button><button class="btn danger small" data-act="log-delete" data-id="${e.id}">Usuń</button></div></div>`; }
     else if(open&&e.kind==="amrap"){ h+=`<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">`;
       h+=`<div class="ds">obwód ${Math.round((e.time||0)/60)} min · ${e.rounds} ${plural(e.rounds,"pełna runda","pełne rundy","pełnych rund")} (${e.roundsDone})</div>`;
@@ -958,21 +959,25 @@ function abortTimer(){
    ===================================================================== */
 let CAL=null; // {ex, state: idle|set|rest|done, elapsed, lastTick, raf, sets:[{ex,reps,dur,rest}], setStart, restStart, startedAt, beeped}
 const calRest=()=>DB.calRest||90;
-const calTotals=()=>CAL.sets.reduce((a,x)=>a+(x.reps||0),0);
+const isTimed=ex=>!!(CAL_EX[ex]||{}).timed;
+const calTotals=()=>CAL.sets.reduce((a,x)=>a+(isTimed(x.ex)?0:(x.reps||0)),0);
+const calHold=()=>CAL.sets.reduce((a,x)=>a+(isTimed(x.ex)?(x.reps||0):0),0);
 function calName(){ const exs=[...new Set(CAL.sets.map(x=>x.ex))]; return (exs.length?exs:[CAL.ex]).map(id=>CAL_EX[id].name).join(" + "); }
 const gripsOf=ex=>CAL_EX[ex].grips||null;
 function newSet(ex){ const g=gripsOf(ex); const last=[...CAL.sets].reverse().find(x=>x.ex===ex); const st={ex,reps:last?last.reps:CAL_EX[ex].def,dur:0,rest:0};
   if(g){ g.forEach(([k])=>{ st[k]=last?(last[k]||0):0; }); if(!last) st[g[0][0]]=CAL_EX[ex].def; st.reps=g.reduce((a,[k])=>a+(st[k]||0),0); } return st; }
 function setReps(st,g,v){ if(g&&g!=="all"){ st[g]=v; st.reps=(gripsOf(st.ex)||[]).reduce((a,[k])=>a+(st[k]||0),0); } else st.reps=v; }
-function setLabel(st,short){ const g=gripsOf(st.ex); if(!g) return `<b>${st.reps}</b>`;
+function setLabel(st,short){ const g=gripsOf(st.ex); if(isTimed(st.ex)) return `<b>${st.reps}</b> s`; if(!g) return `<b>${st.reps}</b>`;
   const parts=g.filter(([k])=>st[k]>0).map(([k,n])=>`${st[k]} ${short?n.slice(0,4):n}`); return `<b>${st.reps}</b>${parts.length>1||(parts.length===1&&st.reps!==st[g[0][0]])?` <span class="ds">(${parts.join(" + ")})</span>`:(parts.length===1?` <span class="ds">${short?g.find(([k])=>st[k]>0)[1].slice(0,4):g.find(([k])=>st[k]>0)[1]}</span>`:"")}`; }
 function calTotalsBy(){ const t={}; CAL.sets.forEach(st=>{ const o=t[st.ex]=t[st.ex]||{reps:0}; o.reps+=st.reps||0; (gripsOf(st.ex)||[]).forEach(([k])=>{ o[k]=(o[k]||0)+(st[k]||0); }); }); return t; }
-function calTotalsHtml(){ const t=calTotalsBy(); return Object.entries(t).map(([ex,o])=>{ const g=gripsOf(ex); const sub=g?g.filter(([k])=>o[k]>0).map(([k,n])=>`${n} ${o[k]}`).join(" · "):""; return `${CAL_EX[ex].name} <b>${o.reps}</b>${sub?` <span class="ds">(${sub})</span>`:""}`; }).join(" · "); }
-function switchSetEx(st,ex){ if(st.ex===ex) return; const g=gripsOf(ex); const total=st.reps||0; ["over","under"].forEach(k=>delete st[k]); st.ex=ex;
+function calTotalsHtml(){ const t=calTotalsBy(); return Object.entries(t).map(([ex,o])=>{ if(isTimed(ex)) return `${CAL_EX[ex].name} <b>${fmt(o.reps)}</b>`; const g=gripsOf(ex); const sub=g?g.filter(([k])=>o[k]>0).map(([k,n])=>`${n} ${o[k]}`).join(" · "):""; return `${CAL_EX[ex].name} <b>${o.reps}</b>${sub?` <span class="ds">(${sub})</span>`:""}`; }).join(" · "); }
+function switchSetEx(st,ex){ if(st.ex===ex) return; const g=gripsOf(ex); let total=st.reps||0; if(isTimed(ex)!==isTimed(st.ex)) total=isTimed(ex)?(st.dur||CAL_EX[ex].def):CAL_EX[ex].def; ["over","under"].forEach(k=>delete st[k]); st.ex=ex;
   if(g){ g.forEach(([k])=>{ st[k]=0; }); st[g[0][0]]=total; } st.reps=total; }
 function repsPanelHtml(st,k){ const g=gripsOf(st.ex), name=CAL_EX[st.ex].name;
-  if(st.ok) return `<div class="setcard"><div class="row"><div class="grow"><div class="nm">Seria ${k} ✓ ${esc(name)}</div><div class="ds">${setLabel(st,false).replace(/<\/?b>/g,"")} powt. – zapisane</div></div><button class="btn secondary small" data-act="cal-edit">Popraw</button></div></div>`;
-  const fields=!g?`<div class="row"><div class="grow nm" style="font-weight:600">powtórzenia</div>${stepper("cal-reps",st.reps,{step:1,min:0,max:200,attr:'data-g="all"'})}</div>`
+  const timed=isTimed(st.ex);
+  if(st.ok) return `<div class="setcard"><div class="row"><div class="grow"><div class="nm">Seria ${k} ✓ ${esc(name)}</div><div class="ds">${setLabel(st,false).replace(/<\/?b>/g,"")}${timed?"":" powt."} – zapisane</div></div><button class="btn secondary small" data-act="cal-edit">Popraw</button></div></div>`;
+  const fields=timed?`<div class="row"><div class="grow nm" style="font-weight:600">sekundy trzymania</div>${stepper("cal-reps",st.reps,{step:5,min:0,max:900,unit:"s",attr:'data-g="all"'})}</div>`
+    :!g?`<div class="row"><div class="grow nm" style="font-weight:600">powtórzenia</div>${stepper("cal-reps",st.reps,{step:1,min:0,max:200,attr:'data-g="all"'})}</div>`
     :g.map(([key,n],i)=>`<div class="row"${i?' style="margin-top:8px"':""}><div class="grow nm" style="font-weight:600">${n}</div>${stepper("cal-reps",st[key]||0,{step:1,min:0,max:200,attr:`data-g="${key}"`})}</div>`).join("");
   return `<div class="setcard pending"><div class="nm" style="margin-bottom:8px">Seria ${k} · ${esc(name)} <span class="ds">(zmień chipem wyżej, jeśli to inne ćwiczenie)</span></div>${fields}
     <button class="btn small w100" style="margin-top:12px" data-act="cal-ok">✓ Zatwierdź serię ${k}</button></div>`; }
@@ -996,7 +1001,7 @@ function renderCal(){
   }
   $("cal-end").textContent="Zakończ trening";
   if(c.state==="set"){
-    $("cal-serie").innerHTML=`Seria <b>${k+1}</b>`; $("cal-mode").textContent=`Seria ${k+1} w toku – liczą się powtórzenia`; $("cal-sec").textContent=fmt(c.elapsed);
+    const timed=isTimed(c.ex); $("cal-serie").innerHTML=`Seria <b>${k+1}</b>`; $("cal-mode").textContent=timed?`Seria ${k+1} · trzymaj – zegar liczy sekundy`:`Seria ${k+1} w toku – liczą się powtórzenia`; $("cal-sec").textContent=fmt(timed?c.elapsed-c.setStart:c.elapsed);
     $("cal-reps").hidden=true; tiles.hidden=true; $("cal-main").textContent="Koniec serii"; fill.style.height="0%"; return;
   }
   if(c.state==="rest"){
@@ -1019,13 +1024,13 @@ function calTick(now){
 function calMain(){
   const c=CAL;
   if(c.state==="idle"){ c.startedAt=new Date().toISOString(); c.state="set"; c.elapsed=0; c.setStart=0; unlockAudio(); beepMinute(); keepAwake(); c.lastTick=performance.now(); c.raf=requestAnimationFrame(calTick); }
-  else if(c.state==="set"){ const st=newSet(c.ex); st.dur=Math.round(c.elapsed-c.setStart); st.ok=false; c.sets.push(st); c.state="rest"; c.restStart=c.elapsed; c.beeped=false; beep(440,250,.4); }
+  else if(c.state==="set"){ const st=newSet(c.ex); st.dur=Math.round(c.elapsed-c.setStart); if(isTimed(c.ex)) st.reps=st.dur; st.ok=false; c.sets.push(st); c.state="rest"; c.restStart=c.elapsed; c.beeped=false; beep(440,250,.4); }
   else if(c.state==="rest"){ const st=c.sets[c.sets.length-1]; st.rest=Math.round(c.elapsed-c.restStart); st.ok=true; c.state="set"; c.setStart=c.elapsed; beepMinute(); }
   renderCal();
 }
 function calFinish(){
   const c=CAL; cancelAnimationFrame(c.raf);
-  if(c.state==="set"){ const d=c.elapsed-c.setStart; if(d>=3){ const st=newSet(c.ex); st.dur=Math.round(d); c.sets.push(st); } }
+  if(c.state==="set"){ const d=c.elapsed-c.setStart; if(d>=3){ const st=newSet(c.ex); st.dur=Math.round(d); if(isTimed(c.ex)) st.reps=st.dur; c.sets.push(st); } }
   else if(c.state==="rest"){ c.sets[c.sets.length-1].rest=Math.round(c.elapsed-c.restStart); }
   c.state="done"; releaseWake(); stopSilent(); renderCalSummary();
 }
@@ -1034,10 +1039,12 @@ function renderCalSummary(){
   const c=CAL, reps=calTotals(), secs=Math.floor(c.elapsed), n=c.sets.length, mixed=new Set(c.sets.map(x=>x.ex)).size>1;
   const exChips=(x,i)=>`<div class="filters" style="padding:6px 0 0">${Object.entries(CAL_EX).map(([id,e])=>`<button class="chip${id===x.ex?" on":""}" data-act="cal-sum-ex" data-idx="${i}" data-ex="${id}" style="min-height:36px;font-size:13px;padding:0 12px">${e.name}</button>`).join("")}</div>`;
   const rows=c.sets.map((x,i)=>{ const g=gripsOf(x.ex); const head=`<div class="grow"><div class="nm">Seria ${i+1}</div><div class="ds">${x.rest?`przerwa po serii ${fmt(x.rest)}`:"ostatnia seria"}</div></div>`;
+    if(isTimed(x.ex)) return `<div class="exrow"><div class="row">${head}${stepper("cal-sum",x.reps,{step:5,min:0,max:900,unit:"s",idx:i,attr:'data-g="all"'})}</div>${exChips(x,i)}</div>`;
     if(!g) return `<div class="exrow"><div class="row">${head}${stepper("cal-sum",x.reps,{step:1,min:0,max:200,idx:i,attr:'data-g="all"'})}</div>${exChips(x,i)}</div>`;
     return `<div class="exrow"><div class="row">${head}<div class="nm">${x.reps}</div></div>`+g.map(([key,n])=>`<div class="row ctl" style="margin-top:8px"><div class="grow ds">${n}</div>${stepper("cal-sum",x[key]||0,{step:1,min:0,max:200,idx:i,attr:`data-g="${key}"`})}</div>`).join("")+exChips(x,i)+`</div>`; }).join("");
-  const html=`<h2>Zrobione! 💪</h2><div class="sub">${esc(calName())} · ${fmt(secs)} · ${n} ${plural(n,"seria","serie","serii")} · ${reps} powt.</div>
-    <div class="h2">Powtórzenia w seriach</div>${rows||`<div class="empty">Brak zaliczonych serii.</div>`}
+  const hold=calHold();
+  const html=`<h2>Zrobione! 💪</h2><div class="sub">${esc(calName())} · ${fmt(secs)} · ${n} ${plural(n,"seria","serie","serii")}${reps?` · ${reps} powt.`:""}${hold?` · ${fmt(hold)} trzymania`:""}</div>
+    <div class="h2">Powtórzenia i czas w seriach</div>${rows||`<div class="empty">Brak zaliczonych serii.</div>`}
     <div class="stat" style="margin-top:14px"><div><b>${reps}</b><span>powtórzeń</span></div><div><b>${n}</b><span>${plural(n,"seria","serie","serii")}</span></div><div><b>${fmt(secs)}</b><span>czas</span></div></div>
     ${n?`<div class="sub" style="margin-top:8px">Razem: ${calTotalsHtml()}</div>`:""}
     <div class="stack"><button class="btn" data-act="cal-save" ${n?"":"disabled"}>Zapisz w dzienniku</button><button class="btn secondary" data-act="cal-save-garmin" ${n?"":"disabled"}>Zapisz i wyślij do Garmin</button><button class="btn secondary" data-act="cal-skip">Nie zapisuj</button></div>`;
@@ -1047,7 +1054,8 @@ function calEntry(){
   const c=CAL, reps=calTotals();
   return { id:Date.now(), date:c.startedAt||new Date().toISOString(), kind:"cal", setId:null, name:calName(), rounds:c.sets.length, roundsDone:c.sets.length,
     minutes:Math.round(c.elapsed/60), seconds:Math.floor(c.elapsed), kg:0, complete:true, reps, volume:0,
-    sets:c.sets.map(x=>{ const o={ex:x.ex,name:CAL_EX[x.ex].name,reps:x.reps,dur:x.dur,rest:x.rest}; (gripsOf(x.ex)||[]).forEach(([k])=>{ o[k]=x[k]||0; }); return o; }) };
+    hold:calHold(),
+    sets:c.sets.map(x=>{ const t=isTimed(x.ex); const o={ex:x.ex,name:CAL_EX[x.ex].name,reps:t?null:x.reps,hold:t?x.reps:null,dur:t?x.reps:x.dur,rest:x.rest}; (gripsOf(x.ex)||[]).forEach(([k])=>{ o[k]=x[k]||0; }); return o; }) };
 }
 function calSave(){ DB.log.unshift(calEntry()); save(); const id=DB.log[0].id; calLeave(); toast("Zapisano w dzienniku"); return id; }
 
