@@ -714,7 +714,7 @@ function renderLog(){
       h+=`<div class="row" style="margin-top:8px"><button class="btn secondary small grow" data-act="garmin" data-id="${e.id}">Wyślij do Garmin (FIT)</button><button class="btn danger small" data-act="log-delete" data-id="${e.id}">Usuń</button></div></div>`; }
     else if(open&&e.kind==="amrap"){ h+=`<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">`;
       h+=`<div class="ds">obwód ${Math.round((e.time||0)/60)} min · ${e.rounds} ${plural(e.rounds,"pełna runda","pełne rundy","pełnych rund")} (${e.roundsDone})</div>`;
-      (e.items||[]).forEach(it=>{ h+=`<div class="row" style="padding:6px 0"><div class="grow nm" style="font-size:15px">${esc(it.name)}</div><div class="ds">${it.count} × ${it.reps==null?"–":it.reps}${it.reps!=null?` = ${it.count*it.reps} powt.`:""}${it.bw?" · bez kettla":(it.kg!=null&&it.kg!==e.kg?` · ${it.kg} kg`:"")}</div></div>`; });
+      (e.items||[]).forEach(it=>{ h+=`<div class="row" style="padding:6px 0"><div class="grow nm" style="font-size:15px">${esc(it.name)}</div><div class="ds">${it.count} × ${it.reps==null?"–":it.reps}${it.reps!=null?` = ${it.count*it.reps} powt.`:""}${it.bw?" · bez kettla":(it.kgs&&it.kgs.length>1?` · ${it.kgs.join("/")} kg`:(it.kg!=null&&it.kg!==e.kg?` · ${it.kg} kg`:""))}</div></div>`; });
       h+=`<div class="row" style="margin-top:8px"><button class="btn secondary small grow" data-act="garmin" data-id="${e.id}">Wyślij do Garmin (FIT)</button><button class="btn danger small" data-act="log-delete" data-id="${e.id}">Usuń</button></div></div>`; }
     else if(open){ h+=`<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">`;
       const exMin=entrySeq(e).filter(it=>it.seg>0).length;
@@ -1145,13 +1145,14 @@ function amEntry(){
   const counts=p.items.map(()=>0); a.done.forEach(d=>counts[d.i]++); let prev=0;
   return { id:Date.now(), date:a.startedAt||new Date().toISOString(), kind:"amrap", setId:p.setId, name:p.name, time:p.time, rounds:full, roundsDone:Math.round(a.done.length/len*10)/10,
     minutes:Math.round(secs/60), seconds:secs, kg:p.kg, complete:a.elapsed>=p.time, reps:t.reps, volume:t.vol, slot:60,
-    items:p.items.map((it,i)=>({id:it.id,name:it.name,side:it.side,reps:it.reps,count:counts[i],bw:it.bw,kg:it.bw?null:(a.kgSlot[i]!=null?a.kgSlot[i]:p.kg)})),
+    items:p.items.map((it,i)=>{ const kgs=uniq(a.done.filter(d=>d.i===i).map(d=>d.kg)); return {id:it.id,name:it.name,side:it.side,reps:it.reps,count:counts[i],bw:it.bw,kg:it.bw?null:(kgs[0]!=null?kgs[0]:(a.kgSlot[i]!=null?a.kgSlot[i]:p.kg)),kgs:it.bw?null:kgs}; }),
     sets:a.done.map(d=>{ const it=p.items[d.i], dur=Math.max(1,d.t-prev); prev=d.t+(d.rest||0); return {ex:it.id,name:it.name,reps:it.reps,dur,rest:d.rest||0,kg:it.bw?0:d.kg,bw:!!it.bw}; }) };
 }
 function renderAmSummary(){
   const a=AM, p=a.plan, len=p.items.length, t=amTotals(), full=Math.floor(a.done.length/len), extra=a.done.length%len, secs=Math.min(p.time,Math.floor(a.elapsed));
   const counts=p.items.map(()=>0); a.done.forEach(d=>counts[d.i]++);
-  const rows=p.items.map((it,i)=>`<div class="exrow"><div class="row"><div class="grow"><div class="nm">${esc(it.name)}</div><div class="ds">${esc(it.label)}${it.bw?" · bez kettla":` · ${amKg(i)} kg`}</div></div><div class="nm">${counts[i]} ×</div></div></div>`).join("");
+  const kgsOf=i=>{ const u=uniq(a.done.filter(d=>d.i===i).map(d=>d.kg)); return u.length?u:[amKg(i)]; };
+  const rows=p.items.map((it,i)=>`<div class="exrow"><div class="row"><div class="grow"><div class="nm">${esc(it.name)}</div><div class="ds">${esc(it.label)}${it.bw?" · bez kettla":` · ${kgsOf(i).join("/")} kg`}</div></div><div class="nm">${counts[i]} ×</div></div></div>`).join("");
   openModal(`<h2>${a.elapsed>=p.time?"Koniec czasu! 💪":"Obwód zakończony"}</h2><div class="sub">${esc(p.name)} · ${fmt(secs)} · ${full} ${plural(full,"pełna runda","pełne rundy","pełnych rund")}${extra?` + ${extra} ćw.`:""}</div>
     <div class="h2">Ile razy zaliczone</div>${rows}
     <div class="stat" style="margin-top:14px"><div><b>${nf(t.reps)}</b><span>powtórzeń</span></div><div><b>${nf(t.vol)}</b><span>kg przerzucone</span></div><div><b>${fmt(secs)}</b><span>czas</span></div></div>
@@ -1373,7 +1374,8 @@ const ACT={
   "am-video":()=>{ if(!AM) return; const it=AM.plan.items[AM.idx], exVid=it.src||null, setVid=AM.plan.src||null, vid=exVid||setVid; if(!vid) return;
       if(AM.state==="run"||AM.state==="rest") amPause(); openVideo(vid,null,exVid?it.name:null,(exVid&&setVid&&exVid!==setVid)?{vid:setVid,label:"Film treningu",thisLabel:"Film ćwiczenia"}:null); },
   "am-jump":d=>{ if(!AM||AM.state==="idle"||AM.state==="done"||AM.state==="rest") return; AM.idx=+d.i; renderAm(); },
-  "am-kg":d=>{ const kg=+d.kg; if(AM.state==="idle"){ AM.plan.kg=kg; AM.kgSlot={}; DB.kg=kg; if(DB.last&&DB.last.plan) DB.last.plan.kg=kg; save(); } else AM.kgSlot[AM.idx]=kg; if(navigator.vibrate) navigator.vibrate(30); renderAm(); },
+  "am-kg":d=>{ const kg=+d.kg; /* obwód = jeden kettel: kafel zmienia ciężar wszystkich ćwiczeń od teraz; zaliczone zachowują swój */
+      AM.plan.kg=kg; AM.kgSlot={}; if(AM.state==="idle"){ DB.kg=kg; if(DB.last&&DB.last.plan) DB.last.plan.kg=kg; save(); } if(navigator.vibrate) navigator.vibrate(30); renderAm(); },
   "am-finish":()=>{ closeModal(); amFinish(); },
   "am-drop":()=>amLeave(),
   "am-save":()=>amSave(),
