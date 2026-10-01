@@ -285,6 +285,7 @@ const VIDEOS = {
   "srXBhU9ksYo":{t:"Train Your Upper Body With One Kettlebell",ch:"Kingdom Kettlebells"},
   "k91UizQkE2U":{t:"10 Core & Abs Kettlebell Exercises",ch:"Vadim Kettlebell"},
   "k_B5711DgVo":{t:"Legs & Core 16' EMOM – Unbreakable Legs",ch:"Vadim Kettlebell"},
+  "zCSbSuyBdEo":{t:"400 Reps Arm Destroyer",ch:"Vadim Kettlebell"},
   "XuvxplfUF-4":{t:"Brutally Effective Beginner Kettlebell Complex – Full Body",ch:"FitDad"},
 };
 const TAGS = ["biceps","triceps","barki","klatka","plecy","brzuch","nogi","pośladki","cardio"];
@@ -407,6 +408,8 @@ const PRESETS = [
   /* obwód na czas (AMRAP): jak najwięcej rund w zadanym czasie */
   {id:"am-kingdom-upper",kind:"amrap",name:"Upper Body · One Kettlebell",focus:"góra ciała w klęku · obwód 15 min, jak najwięcej rund",src:"srXBhU9ksYo",rounds:1,time:900,items:[
     I("goblet-curl",8),I("chop",12,"6 + 6"),I("kneeling-press",12,"6 + 6"),I("sumo-high-pull",8),I("v-sit-halo",8),I("knee-elbow-pushup",8)]},
+  {id:"am-arm-destroyer",kind:"amrap",name:"400 Reps Arm Destroyer",focus:"barki + biceps · 10 supersetów × 4 ćwiczenia po 10 powt. = 400 powt., bez limitu czasu",src:"zCSbSuyBdEo",rounds:1,time:1500,goalRounds:10,items:[
+    I("front-raise",10),I("front-to-back",10),I("upright-row",10),I("goblet-curl",10)]},
   /* zestawy autorskie zbudowane z biblioteki */
   {id:"a-legs",name:"Nogi & pośladki",focus:"nogi + pośladki",src:null,rounds:5,items:[
     I("goblet-squat",12),I("goblet-back-lunge-alt",14),I("romanian-deadlift",16),I("russian-swing",20)]},
@@ -559,7 +562,7 @@ function setCard(s){
   const e=effective(s), tags=setTags(s).slice(0,5);
   return `<div class="card tap" data-act="open-set" data-id="${s.id}"><div class="row"><div class="grow">
     <h3>${esc(s.name)}</h3>${s.focus?`<div class="sub">${esc(s.focus)}</div>`:""}
-    <div class="sub">${s.kind==="amrap"?`${exWord(s.items.length)} · obwód ${Math.round((e.time||900)/60)} min · jak najwięcej rund`:setMeta(s.items.length,e.rounds,s.slot,s.roundRest)}</div>
+    <div class="sub">${s.kind==="amrap"?`${exWord(s.items.length)} · obwód ${Math.round((e.time||900)/60)} min · ${s.goalRounds?`cel ${s.goalRounds} rund`:"jak najwięcej rund"}`:setMeta(s.items.length,e.rounds,s.slot,s.roundRest)}</div>
     <div class="chips">${tags.map(t=>`<span class="chip">${t}</span>`).join("")}</div></div>
     ${s.src?`<button class="play" data-act="video" data-vid="${s.src}" aria-label="Film">▶</button>`:""}</div></div>`;
 }
@@ -1063,7 +1066,7 @@ function calSave(){ DB.log.unshift(calEntry()); save(); const id=DB.log[0].id; c
    OBWÓD NA CZAS (AMRAP) – jak najwięcej rund w zadanym czasie; korzysta z ekranu kalisteniki (#s-cal)
    ===================================================================== */
 let AM=null; // {plan:{kind,setId,name,src,kg,time,items}, state: idle|run|paused|done, elapsed, idx, round, done:[{i,t,kg}], kgSlot, startedAt}
-function amPlanFrom(s,e){ return {kind:"amrap",setId:s.id||null,name:s.name,src:s.src||null,kg:e.kg,time:e.time||s.time||900,items:e.items.map(resolveItem)}; }
+function amPlanFrom(s,e){ return {kind:"amrap",setId:s.id||null,name:s.name,src:s.src||null,kg:e.kg,time:e.time||s.time||900,goalRounds:s.goalRounds||0,items:e.items.map(resolveItem)}; }
 function startAmrap(s,e){ startAmrapPlan(amPlanFrom(s,e)); }
 function startAmrapPlan(p){
   const plan=JSON.parse(JSON.stringify(p));
@@ -1084,7 +1087,8 @@ function renderAm(){
   const clock=$("cal-clock"); clock.classList.remove("rest"); clock.classList.toggle("warn",active&&rem<=60);
   $("cal-sec").textContent=fmt(Math.ceil(rem));
   $("cal-phase").innerHTML=`<span style="color:var(--work);font-weight:700;font-size:22px">${esc(it.label)}</span><br><span class="ds">następnie: ${esc(nxt.name)}</span>`;
-  $("cal-sets").innerHTML=a.done.length?`Zaliczone: <b>${full}</b> ${plural(full,"pełna runda","pełne rundy","pełnych rund")}${extra?` + ${extra} ćw.`:""} · <b>${nf(t.reps)}</b> powt. · ${nf(t.vol)} kg`:"Zrób ćwiczenie i naciśnij „Zaliczone” – licznik rund i powtórzeń rośnie sam.";
+  const goal=p.goalRounds?` · cel <b>${p.goalRounds}</b> rund${full>=p.goalRounds?" ✓":""}`:"";
+  $("cal-sets").innerHTML=a.done.length?`Zaliczone: <b>${full}</b> ${plural(full,"pełna runda","pełne rundy","pełnych rund")}${extra?` + ${extra} ćw.`:""}${goal} · <b>${nf(t.reps)}</b> powt. · ${nf(t.vol)} kg`:`Zrób ćwiczenie i naciśnij „Zaliczone” – licznik rund i powtórzeń rośnie sam.${goal}`;
   const tiles=$("cal-tiles"), showT=!it.bw&&!it.rest&&a.state!=="done"; tiles.hidden=!showT;
   if(showT){ const cur=amKg(a.idx); tiles.innerHTML=tileValues(cur).map(v=>`<button class="tile${v===cur?" on":""}" data-act="am-kg" data-kg="${v}">${v} kg</button>`).join(""); }
   const fill=$("cfill"); fill.style.background="var(--work)"; fill.style.height=a.state==="idle"?"0%":`${Math.min(100,a.elapsed/p.time*100)}%`;
@@ -1101,7 +1105,8 @@ function amTick(now){
   if(rem<=0){ a.elapsed=a.plan.time; a.state="done"; beepEnd(); releaseWake(); setTimeout(stopSilent,1500); renderAm(); setTimeout(renderAmSummary,900); return; }
   renderAm(); a.raf=requestAnimationFrame(amTick);
 }
-function amNext(){ const a=AM, len=a.plan.items.length; a.done.push({i:a.idx,t:Math.round(a.elapsed),kg:amKg(a.idx)}); a.idx=(a.idx+1)%len; if(a.idx===0){ a.round++; beepMinute(); } else beep(660,120,.4); if(navigator.vibrate) navigator.vibrate(40); }
+function amNext(){ const a=AM, len=a.plan.items.length; a.done.push({i:a.idx,t:Math.round(a.elapsed),kg:amKg(a.idx)}); a.idx=(a.idx+1)%len;
+  if(a.idx===0){ a.round++; if(a.plan.goalRounds&&Math.floor(a.done.length/len)===a.plan.goalRounds){ beepEnd(); toast(`Cel ${a.plan.goalRounds} rund osiągnięty! 💪`); } else beepMinute(); } else beep(660,120,.4); if(navigator.vibrate) navigator.vibrate(40); }
 function amMain(){
   const a=AM;
   if(a.state==="idle"){ a.startedAt=new Date().toISOString(); a.state="run"; a.lastW=null; unlockAudio(); beepMinute(); keepAwake(); a.lastTick=performance.now(); a.raf=requestAnimationFrame(amTick); }
