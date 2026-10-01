@@ -147,7 +147,7 @@
   #cal-end{font-size:16px;line-height:1.1;padding:10px 6px}
   .pend{color:var(--work)}
   .h2.tap{width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center;min-height:44px}
-  #app header #t-video{margin:0 4px 0 0;font-size:18px}
+  #app header #t-video,#capp header #cal-video{margin:0 4px 0 0;font-size:18px}
   #app header #t-video[hidden]{display:none}
   .minute{margin-top:12px;font-size:15px;color:var(--work);font-weight:700;letter-spacing:.02em}
   .name{margin-top:6px;font-size:clamp(34px,10vw,48px);font-weight:800;line-height:1.05;letter-spacing:-.01em}
@@ -239,6 +239,7 @@
       <button class="back" data-act="cal-abort" aria-label="Zakończ trening">‹</button>
       <span id="cal-serie">Seria <b>–</b></span>
       <span class="grow"></span>
+      <button class="back" id="cal-video" data-act="am-video" aria-label="Film z ćwiczeniem" hidden>▶</button>
       <span>Łącznie <b id="cal-total">0:00</b></span>
     </header>
     <div class="minute" id="cal-mode">Kalistenika</div>
@@ -992,7 +993,7 @@ function goCal(ex){
   show("cal"); renderCal();
 }
 function renderCal(){
-  const c=CAL; if(!c) return; const k=c.sets.length, ex=CAL_EX[c.ex], fill=$("cfill"), clock=$("cal-clock");
+  const c=CAL; if(!c) return; const k=c.sets.length, ex=CAL_EX[c.ex], fill=$("cfill"), clock=$("cal-clock"); $("cal-video").hidden=true;
   $("cal-total").textContent=fmt(c.elapsed); $("cal-name").textContent=ex.name;
   $("cal-ex").innerHTML=Object.entries(CAL_EX).map(([id,e])=>`<button class="chip${id===c.ex?" on":""}" data-act="cal-ex" data-ex="${id}">${e.name}</button>`).join("");
   const mixed=new Set(c.sets.map(x=>x.ex)).size>1;
@@ -1084,6 +1085,7 @@ function renderAm(){
   const full=Math.floor(a.done.length/len), extra=a.done.length%len, active=a.state==="run"||a.state==="paused"||a.state==="rest", resting=a.state==="rest"||(a.state==="paused"&&a.prev==="rest");
   const restRem=resting?Math.max(0,p.roundRest-(a.elapsed-a.restStart)):0;
   $("cal-total").textContent=fmt(a.elapsed); $("cal-hint").hidden=a.state!=="idle"; $("cal-phase").hidden=false; $("cal-reps").hidden=true;
+  $("cal-video").hidden=!(it.src||p.src)||a.state==="done";
   $("cal-serie").innerHTML=`Runda <b>${a.round}</b> · ćw. ${a.idx+1}/${len}`;
   $("cal-name").textContent=sideName(it);
   $("cal-ex").innerHTML=p.items.map((x,i)=>`<button class="chip${i===a.idx?" on":""}" data-act="am-jump" data-i="${i}" style="min-height:40px;font-size:13px;padding:0 12px">${i+1}. ${esc(x.name)}</button>`).join("");
@@ -1361,6 +1363,8 @@ const ACT={
   "cal-sum-ex":d=>{ const st=CAL.sets[+d.idx]; switchSetEx(st,d.ex); renderCalSummary(); },
   "cal-rest":d=>{ if(AM) return; DB.calRest=+d.t; save(); if(CAL){ CAL.beeped=CAL.state==="rest"&&(CAL.elapsed-CAL.restStart)>=DB.calRest; renderCal(); } },
   "cal-main":()=>AM?amMain():calMain(),
+  "am-video":()=>{ if(!AM) return; const it=AM.plan.items[AM.idx], exVid=it.src||null, setVid=AM.plan.src||null, vid=exVid||setVid; if(!vid) return;
+      if(AM.state==="run"||AM.state==="rest") amPause(); openVideo(vid,null,exVid?it.name:null,(exVid&&setVid&&exVid!==setVid)?{vid:setVid,label:"Film treningu",thisLabel:"Film ćwiczenia"}:null); },
   "am-jump":d=>{ if(!AM||AM.state==="idle"||AM.state==="done"||AM.state==="rest") return; AM.idx=+d.i; renderAm(); },
   "am-kg":d=>{ const kg=+d.kg; if(AM.state==="idle"){ AM.plan.kg=kg; AM.kgSlot={}; DB.kg=kg; if(DB.last&&DB.last.plan) DB.last.plan.kg=kg; save(); } else AM.kgSlot[AM.idx]=kg; if(navigator.vibrate) navigator.vibrate(30); renderAm(); },
   "am-finish":()=>{ closeModal(); amFinish(); },
