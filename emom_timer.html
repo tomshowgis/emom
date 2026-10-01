@@ -408,7 +408,7 @@ const PRESETS = [
   /* obwód na czas (AMRAP): jak najwięcej rund w zadanym czasie */
   {id:"am-kingdom-upper",kind:"amrap",name:"Upper Body · One Kettlebell",focus:"góra ciała w klęku · obwód 15 min, jak najwięcej rund",src:"srXBhU9ksYo",rounds:1,time:900,items:[
     I("goblet-curl",8),I("chop",12,"6 + 6"),I("kneeling-press",12,"6 + 6"),I("sumo-high-pull",8),I("v-sit-halo",8),I("knee-elbow-pushup",8)]},
-  {id:"am-arm-destroyer",kind:"amrap",name:"400 Reps Arm Destroyer",focus:"barki + biceps · 10 supersetów × 4 ćwiczenia po 10 powt. = 400 powt., bez limitu czasu",src:"zCSbSuyBdEo",rounds:1,time:1500,goalRounds:10,items:[
+  {id:"am-arm-destroyer",kind:"amrap",name:"400 Reps Arm Destroyer",focus:"barki + biceps · 10 rund × 4 ćwiczenia po 10 powt. = 400 powt. · 90 s przerwy między rundami",src:"zCSbSuyBdEo",rounds:1,time:2400,goalRounds:10,roundRest:90,items:[
     I("front-raise",10),I("front-to-back",10),I("upright-row",10),I("goblet-curl",10)]},
   /* zestawy autorskie zbudowane z biblioteki */
   {id:"a-legs",name:"Nogi & pośladki",focus:"nogi + pośladki",src:null,rounds:5,items:[
@@ -526,7 +526,8 @@ $("modal").addEventListener("click",e=>{ if(e.target.id==="modal"&&!$("modal").d
 let YT_PROXY="https://tomshowgis.github.io/emom/yt_embed.html"; // strona pośrednia dla trybu file:// (repo tomshowgis/emom)
 let videoOpen=null;
 function ytMode(){ if(location.protocol!=="file:") return "direct"; return YT_PROXY?"proxy":"thumb"; }
-function openVideo(vid,mode,exName){
+/* alt = {vid, label} – drugi film do wyboru (np. film ćwiczenia vs film całego treningu) */
+function openVideo(vid,mode,exName,alt){
   const v=VIDEOS[vid]||{t:"Film",ch:""}; const url=`https://youtu.be/${vid}`; videoOpen=vid;
   const online=navigator.onLine!==false; mode=mode||ytMode();
   let box;
@@ -536,6 +537,7 @@ function openVideo(vid,mode,exName){
     box=`<iframe id="vframe" src="${src}" title="${esc(v.t)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`; }
   openModal(`<div class="row"><h2 class="grow">${esc(v.t)}</h2><button class="play" data-act="modal-close" aria-label="Zamknij">✕</button></div>
     <div class="sub">${esc(v.ch)} · YouTube${exName?` · ćwiczenie: <b>${esc(exName)}</b>`:""}</div>
+    ${alt&&alt.vid&&alt.vid!==vid?`<div class="filters" style="padding:8px 0 4px"><button class="chip on" style="min-height:40px">${esc(alt.thisLabel||"Film ćwiczenia")}</button><button class="chip" style="min-height:40px" data-act="video-alt" data-vid="${alt.vid}" data-ex="${esc(exName||"")}" data-back="${vid}" data-label="${esc(alt.thisLabel||"Film ćwiczenia")}">${esc(alt.label)}</button></div>`:""}
     <div class="video" id="vbox">${box}</div>
     ${(online&&mode==="thumb")?`<div class="sub" style="margin:-4px 0 12px">Z pliku na dysku YouTube nie pozwala osadzić playera, więc film otworzy się w aplikacji YouTube.</div>`:""}
     <a class="btn secondary" href="${url}" target="_blank" rel="noopener">Otwórz w YouTube ↗</a>
@@ -562,7 +564,7 @@ function setCard(s){
   const e=effective(s), tags=setTags(s).slice(0,5);
   return `<div class="card tap" data-act="open-set" data-id="${s.id}"><div class="row"><div class="grow">
     <h3>${esc(s.name)}</h3>${s.focus?`<div class="sub">${esc(s.focus)}</div>`:""}
-    <div class="sub">${s.kind==="amrap"?`${exWord(s.items.length)} · obwód ${Math.round((e.time||900)/60)} min · ${s.goalRounds?`cel ${s.goalRounds} rund`:"jak najwięcej rund"}`:setMeta(s.items.length,e.rounds,s.slot,s.roundRest)}</div>
+    <div class="sub">${s.kind==="amrap"?`${exWord(s.items.length)} · ${s.goalRounds?`cel ${s.goalRounds} rund`:"jak najwięcej rund"} · limit ${Math.round((e.time||900)/60)} min${s.roundRest?` · ${s.roundRest} s przerwy`:""}`:setMeta(s.items.length,e.rounds,s.slot,s.roundRest)}</div>
     <div class="chips">${tags.map(t=>`<span class="chip">${t}</span>`).join("")}</div></div>
     ${s.src?`<button class="play" data-act="video" data-vid="${s.src}" aria-label="Film">▶</button>`:""}</div></div>`;
 }
@@ -608,7 +610,7 @@ function renderDetail(){
   if(s.focus) h+=`<div class="sub">${esc(s.focus)}</div>`;
   h+=`<div class="chips">${setTags(s).map(t=>`<span class="chip">${t}</span>`).join("")}</div></div>`;
   h+=`<div class="card">`+(s.kind==="amrap"
-    ?`<div class="row"><div class="grow"><div class="nm">Czas obwodu</div><div class="sub">${exWord(s.items.length)} w kółko · jak najwięcej rund w <b>${Math.round((e.time||900)/60)} min</b></div></div>${stepper("d-time",Math.round((e.time||900)/60),{unit:"min",step:5,min:5,max:30})}</div>`
+    ?`<div class="row"><div class="grow"><div class="nm">Czas obwodu</div><div class="sub">${exWord(s.items.length)} w kółko · jak najwięcej rund w <b>${Math.round((e.time||900)/60)} min</b></div></div>${stepper("d-time",Math.round((e.time||900)/60),{unit:"min",step:5,min:5,max:60})}</div>`
     :`<div class="row"><div class="grow"><div class="nm">Rundy</div><div class="sub">${exWord(s.items.length)} × ${e.rounds} = <b>${total} min</b>${rr?` · przerwa ${rr} s między rundami`:""}</div></div>${stepper("d-rounds",e.rounds,{step:1,min:1,max:12})}</div>`)+`
     <div class="row" style="margin-top:12px"><div class="grow"><div class="nm">Kettlebell</div><div class="sub">${s.kind==="amrap"?`jedna runda: ${nf(planVolume(e.items,1,e.kg).reps)} powt. · ok. ${nf(planVolume(e.items,1,e.kg).vol)} kg`:`plan: ${nf(v.reps)} powt. · ok. ${nf(v.vol)} kg`}</div></div>${stepper("d-kg",e.kg,{unit:"kg",step:2,min:0,max:60})}</div>
     <div class="sub" style="margin-top:10px">Kafle na timerze: <b>${(DB.bells||[]).join(" · ")} kg</b> <button class="kgchip" data-act="bells">zmień</button></div></div>`;
@@ -776,7 +778,8 @@ function roundLabel(it){
 }
 function curIdx(){ if(state==="idle") return 0; const idx=elapsed<prepEnd?Math.round(prepEnd/SL()):Math.floor(elapsed/SL()); return Math.min(N()-1,idx); }
 function currentItem(){ if(!plan||state==="done") return null; return plan.seq[curIdx()]; }
-function currentVideo(){ const it=currentItem(); return {vid:(it&&it.src)||plan.src||null, ex:it&&it.src?it.name:null}; }
+function currentVideo(){ const it=currentItem(); const exVid=it&&it.src||null, setVid=plan.src||null;
+  return {vid:exVid||setVid, ex:it&&exVid?it.name:null, alt:(exVid&&setVid&&exVid!==setVid)?{vid:setVid,label:"Film treningu",thisLabel:"Film ćwiczenia"}:null}; }
 /* ciężar i powtórzenia liczone per minuta: kgMin/repsMin (ta minuta) → kgSlot/repsEdit (ćwiczenie) → domyślne */
 function kgAt(m){ const it=plan.seq[m]; if(!it) return plan.kg; if(plan.kgMin&&plan.kgMin[m]!=null) return plan.kgMin[m]; if(plan.kgSlot&&plan.kgSlot[it.slot]!=null) return plan.kgSlot[it.slot]; return plan.kg; }
 function repsAt(m){ const it=plan.seq[m]; if(!it) return null; if(plan.repsMin&&plan.repsMin[m]!=null) return plan.repsMin[m]; if(plan.repsEdit&&plan.repsEdit[it.slot]!=null) return plan.repsEdit[it.slot]; return it.reps; }
@@ -1066,7 +1069,7 @@ function calSave(){ DB.log.unshift(calEntry()); save(); const id=DB.log[0].id; c
    OBWÓD NA CZAS (AMRAP) – jak najwięcej rund w zadanym czasie; korzysta z ekranu kalisteniki (#s-cal)
    ===================================================================== */
 let AM=null; // {plan:{kind,setId,name,src,kg,time,items}, state: idle|run|paused|done, elapsed, idx, round, done:[{i,t,kg}], kgSlot, startedAt}
-function amPlanFrom(s,e){ return {kind:"amrap",setId:s.id||null,name:s.name,src:s.src||null,kg:e.kg,time:e.time||s.time||900,goalRounds:s.goalRounds||0,items:e.items.map(resolveItem)}; }
+function amPlanFrom(s,e){ return {kind:"amrap",setId:s.id||null,name:s.name,src:s.src||null,kg:e.kg,time:e.time||s.time||900,goalRounds:s.goalRounds||0,roundRest:s.roundRest||0,items:e.items.map(resolveItem)}; }
 function startAmrap(s,e){ startAmrapPlan(amPlanFrom(s,e)); }
 function startAmrapPlan(p){
   const plan=JSON.parse(JSON.stringify(p));
@@ -1078,44 +1081,54 @@ const amKg=i=>(AM.kgSlot[i]!=null?AM.kgSlot[i]:AM.plan.kg);
 function amTotals(){ let reps=0,vol=0; AM.done.forEach(d=>{ const it=AM.plan.items[d.i]; if(!it||it.rest||it.reps==null) return; reps+=it.reps; if(!it.bw) vol+=it.reps*(d.kg||0); }); return {reps,vol}; }
 function renderAm(){
   const a=AM; if(!a) return; const p=a.plan, len=p.items.length, it=p.items[a.idx], nxt=p.items[(a.idx+1)%len], rem=Math.max(0,p.time-a.elapsed), t=amTotals();
-  const full=Math.floor(a.done.length/len), extra=a.done.length%len, active=a.state==="run"||a.state==="paused";
+  const full=Math.floor(a.done.length/len), extra=a.done.length%len, active=a.state==="run"||a.state==="paused"||a.state==="rest", resting=a.state==="rest"||(a.state==="paused"&&a.prev==="rest");
+  const restRem=resting?Math.max(0,p.roundRest-(a.elapsed-a.restStart)):0;
   $("cal-total").textContent=fmt(a.elapsed); $("cal-hint").hidden=a.state!=="idle"; $("cal-phase").hidden=false; $("cal-reps").hidden=true;
   $("cal-serie").innerHTML=`Runda <b>${a.round}</b> · ćw. ${a.idx+1}/${len}`;
   $("cal-name").textContent=sideName(it);
   $("cal-ex").innerHTML=p.items.map((x,i)=>`<button class="chip${i===a.idx?" on":""}" data-act="am-jump" data-i="${i}" style="min-height:40px;font-size:13px;padding:0 12px">${i+1}. ${esc(x.name)}</button>`).join("");
   const on=$("cal-ex").querySelector(".chip.on"); if(on){ const el=$("cal-ex"); if(el.scrollWidth>el.clientWidth) el.scrollLeft=Math.max(0,on.offsetLeft-(el.clientWidth-on.offsetWidth)/2); }
-  const clock=$("cal-clock"); clock.classList.remove("rest"); clock.classList.toggle("warn",active&&rem<=60);
-  $("cal-sec").textContent=fmt(Math.ceil(rem));
-  $("cal-phase").innerHTML=`<span style="color:var(--work);font-weight:700;font-size:22px">${esc(it.label)}</span><br><span class="ds">następnie: ${esc(nxt.name)}</span>`;
+  const clock=$("cal-clock"); clock.classList.toggle("rest",resting); clock.classList.toggle("warn",!resting&&active&&rem<=60);
+  $("cal-sec").textContent=fmt(Math.ceil(resting?restRem:rem));
+  $("cal-phase").innerHTML=resting?`<span style="color:var(--rest);font-weight:700;font-size:22px">przerwa między rundami</span><br><span class="ds">za chwilę runda ${a.round}: ${esc(it.name)} · zostało ${fmt(Math.max(0,Math.ceil(rem)))} limitu</span>`
+    :`<span style="color:var(--work);font-weight:700;font-size:22px">${esc(it.label)}</span><br><span class="ds">następnie: ${esc(nxt.name)}</span>`;
   const goal=p.goalRounds?` · cel <b>${p.goalRounds}</b> rund${full>=p.goalRounds?" ✓":""}`:"";
   $("cal-sets").innerHTML=a.done.length?`Zaliczone: <b>${full}</b> ${plural(full,"pełna runda","pełne rundy","pełnych rund")}${extra?` + ${extra} ćw.`:""}${goal} · <b>${nf(t.reps)}</b> powt. · ${nf(t.vol)} kg`:`Zrób ćwiczenie i naciśnij „Zaliczone” – licznik rund i powtórzeń rośnie sam.${goal}`;
-  const tiles=$("cal-tiles"), showT=!it.bw&&!it.rest&&a.state!=="done"; tiles.hidden=!showT;
+  const tiles=$("cal-tiles"), showT=!it.bw&&!it.rest&&a.state!=="done"&&!resting; tiles.hidden=!showT;
   if(showT){ const cur=amKg(a.idx); tiles.innerHTML=tileValues(cur).map(v=>`<button class="tile${v===cur?" on":""}" data-act="am-kg" data-kg="${v}">${v} kg</button>`).join(""); }
-  const fill=$("cfill"); fill.style.background="var(--work)"; fill.style.height=a.state==="idle"?"0%":`${Math.min(100,a.elapsed/p.time*100)}%`;
+  const fill=$("cfill"); fill.style.background=resting?"var(--rest)":"var(--work)"; fill.style.height=a.state==="idle"?"0%":(resting?`${Math.min(100,(1-restRem/p.roundRest)*100)}%`:`${Math.min(100,a.elapsed/p.time*100)}%`);
   if(a.state==="idle"){ $("cal-hint").textContent="Odliczanie w dół. Po każdym ćwiczeniu naciśnij „Zaliczone” – aplikacja liczy rundy, powtórzenia i kilogramy. Pik-pik na minutę przed końcem."; $("cal-mode").textContent=`Obwód ${Math.round(p.time/60)} min · jak najwięcej rund`; $("cal-main").textContent="Start"; $("cal-end").textContent="Wróć"; return; }
   if(a.state==="done"){ $("cal-mode").textContent="Koniec czasu"; $("cal-main").textContent="Podsumowanie"; $("cal-end").textContent="Wróć"; return; }
-  $("cal-mode").textContent=a.state==="paused"?"Pauza":`Obwód ${Math.round(p.time/60)} min · zostało`;
-  $("cal-main").textContent=a.state==="paused"?"Wznów":"Zaliczone ✓";
+  $("cal-mode").textContent=a.state==="paused"?"Pauza":(resting?`Przerwa ${p.roundRest} s po rundzie ${a.round-1}`:`Obwód · limit ${Math.round(p.time/60)} min · zostało`);
+  $("cal-main").textContent=a.state==="paused"?"Wznów":(resting?"Pomiń przerwę":"Zaliczone ✓");
   $("cal-end").textContent=a.state==="paused"?"Zakończ":"Pauza";
 }
 function amTick(now){
-  const a=AM; if(!a||a.state!=="run") return;
+  const a=AM; if(!a||(a.state!=="run"&&a.state!=="rest")) return;
   a.elapsed+=(now-a.lastTick)/1000; a.lastTick=now; const rem=a.plan.time-a.elapsed, w=Math.ceil(rem);
-  if(w!==a.lastW){ a.lastW=w; if(w===60) beepDouble(); else if(w>=1&&w<=3) beepCount(); }
+  if(a.state==="rest"){ const rr=a.plan.roundRest-(a.elapsed-a.restStart), rw=Math.ceil(rr);
+    if(rw!==a.lastRW){ a.lastRW=rw; if(rw===10) beepDouble(); else if(rw>=1&&rw<=3) beepCount(); }
+    if(rr<=0) amEndRest(true); }
+  else if(w!==a.lastW){ a.lastW=w; if(w===60) beepDouble(); else if(w>=1&&w<=3) beepCount(); }
   if(rem<=0){ a.elapsed=a.plan.time; a.state="done"; beepEnd(); releaseWake(); setTimeout(stopSilent,1500); renderAm(); setTimeout(renderAmSummary,900); return; }
   renderAm(); a.raf=requestAnimationFrame(amTick);
 }
 function amNext(){ const a=AM, len=a.plan.items.length; a.done.push({i:a.idx,t:Math.round(a.elapsed),kg:amKg(a.idx)}); a.idx=(a.idx+1)%len;
-  if(a.idx===0){ a.round++; if(a.plan.goalRounds&&Math.floor(a.done.length/len)===a.plan.goalRounds){ beepEnd(); toast(`Cel ${a.plan.goalRounds} rund osiągnięty! 💪`); } else beepMinute(); } else beep(660,120,.4); if(navigator.vibrate) navigator.vibrate(40); }
+  if(a.idx===0){ a.round++; const goalHit=a.plan.goalRounds&&Math.floor(a.done.length/len)===a.plan.goalRounds;
+    if(goalHit){ beepEnd(); toast(`Cel ${a.plan.goalRounds} rund osiągnięty! 💪`); } else beepMinute();
+    if(a.plan.roundRest>0&&!goalHit){ a.state="rest"; a.restStart=a.elapsed; a.lastRW=null; } }
+  else beep(660,120,.4); if(navigator.vibrate) navigator.vibrate(40); }
+function amEndRest(auto){ const a=AM; if(a.state!=="rest") return; const d=Math.round(a.elapsed-a.restStart); const last=a.done[a.done.length-1]; if(last) last.rest=d; a.state="run"; if(auto) beepMinute(); renderAm(); }
 function amMain(){
   const a=AM;
   if(a.state==="idle"){ a.startedAt=new Date().toISOString(); a.state="run"; a.lastW=null; unlockAudio(); beepMinute(); keepAwake(); a.lastTick=performance.now(); a.raf=requestAnimationFrame(amTick); }
   else if(a.state==="run"){ amNext(); }
-  else if(a.state==="paused"){ a.state="run"; unlockAudio(); keepAwake(); a.lastTick=performance.now(); a.raf=requestAnimationFrame(amTick); }
+  else if(a.state==="rest"){ amEndRest(false); }
+  else if(a.state==="paused"){ a.state=a.prev||"run"; unlockAudio(); keepAwake(); a.lastTick=performance.now(); a.raf=requestAnimationFrame(amTick); }
   else if(a.state==="done"){ renderAmSummary(); return; }
   renderAm();
 }
-function amPause(){ const a=AM; if(a.state!=="run") return; a.state="paused"; cancelAnimationFrame(a.raf); stopSilent(); renderAm(); }
+function amPause(){ const a=AM; if(a.state!=="run"&&a.state!=="rest") return; a.prev=a.state; a.state="paused"; cancelAnimationFrame(a.raf); stopSilent(); renderAm(); }
 function amFinish(){ const a=AM; cancelAnimationFrame(a.raf); a.state="done"; releaseWake(); stopSilent(); renderAm(); renderAmSummary(); }
 function amLeave(){ if(AM&&AM.raf) cancelAnimationFrame(AM.raf); releaseWake(); stopSilent(); AM=null; closeModal(); goHome(); }
 function amEntry(){
@@ -1124,7 +1137,7 @@ function amEntry(){
   return { id:Date.now(), date:a.startedAt||new Date().toISOString(), kind:"amrap", setId:p.setId, name:p.name, time:p.time, rounds:full, roundsDone:Math.round(a.done.length/len*10)/10,
     minutes:Math.round(secs/60), seconds:secs, kg:p.kg, complete:a.elapsed>=p.time, reps:t.reps, volume:t.vol, slot:60,
     items:p.items.map((it,i)=>({id:it.id,name:it.name,side:it.side,reps:it.reps,count:counts[i],bw:it.bw,kg:it.bw?null:(a.kgSlot[i]!=null?a.kgSlot[i]:p.kg)})),
-    sets:a.done.map(d=>{ const it=p.items[d.i], dur=Math.max(1,d.t-prev); prev=d.t; return {ex:it.id,name:it.name,reps:it.reps,dur,rest:0,kg:it.bw?0:d.kg,bw:!!it.bw}; }) };
+    sets:a.done.map(d=>{ const it=p.items[d.i], dur=Math.max(1,d.t-prev); prev=d.t+(d.rest||0); return {ex:it.id,name:it.name,reps:it.reps,dur,rest:d.rest||0,kg:it.bw?0:d.kg,bw:!!it.bw}; }) };
 }
 function renderAmSummary(){
   const a=AM, p=a.plan, len=p.items.length, t=amTotals(), full=Math.floor(a.done.length/len), extra=a.done.length%len, secs=Math.min(p.time,Math.floor(a.elapsed));
@@ -1348,17 +1361,17 @@ const ACT={
   "cal-sum-ex":d=>{ const st=CAL.sets[+d.idx]; switchSetEx(st,d.ex); renderCalSummary(); },
   "cal-rest":d=>{ if(AM) return; DB.calRest=+d.t; save(); if(CAL){ CAL.beeped=CAL.state==="rest"&&(CAL.elapsed-CAL.restStart)>=DB.calRest; renderCal(); } },
   "cal-main":()=>AM?amMain():calMain(),
-  "am-jump":d=>{ if(!AM||AM.state==="idle"||AM.state==="done") return; AM.idx=+d.i; renderAm(); },
+  "am-jump":d=>{ if(!AM||AM.state==="idle"||AM.state==="done"||AM.state==="rest") return; AM.idx=+d.i; renderAm(); },
   "am-kg":d=>{ const kg=+d.kg; if(AM.state==="idle"){ AM.plan.kg=kg; AM.kgSlot={}; DB.kg=kg; if(DB.last&&DB.last.plan) DB.last.plan.kg=kg; save(); } else AM.kgSlot[AM.idx]=kg; if(navigator.vibrate) navigator.vibrate(30); renderAm(); },
   "am-finish":()=>{ closeModal(); amFinish(); },
   "am-drop":()=>amLeave(),
   "am-save":()=>amSave(),
   "am-save-garmin":()=>{ const id=amSave(); openGarmin(id); },
   "am-skip":()=>amLeave(),
-  "cal-end":()=>{ if(AM){ if(AM.state==="idle"||AM.state==="done"){ amLeave(); return; } if(AM.state==="run"){ amPause(); return; }
+  "cal-end":()=>{ if(AM){ if(AM.state==="idle"||AM.state==="done"){ amLeave(); return; } if(AM.state==="run"||AM.state==="rest"){ amPause(); return; }
       openModal(`<h2>Zakończyć obwód?</h2><div class="sub">${AM.done.length} zaliczonych ćwiczeń · ${fmt(AM.elapsed)}</div><div class="stack"><button class="btn" data-act="am-finish">Zakończ i podsumuj</button><button class="btn secondary" data-act="modal-close">Wróć</button></div>`); return; }
     if(CAL.state==="idle"){ calLeave(); return; } openModal(`<h2>Zakończyć trening?</h2><div class="sub">${CAL.sets.length} ${plural(CAL.sets.length,"seria","serie","serii")} · ${fmt(CAL.elapsed)}</div><div class="stack"><button class="btn" data-act="cal-finish">Zakończ i podsumuj</button><button class="btn secondary" data-act="modal-close">Wróć do treningu</button></div>`); },
-  "cal-abort":()=>{ if(AM){ if(AM.state==="idle"){ amLeave(); return; } if(AM.state==="run") amPause();
+  "cal-abort":()=>{ if(AM){ if(AM.state==="idle"){ amLeave(); return; } if(AM.state==="run"||AM.state==="rest") amPause();
       openModal(`<h2>Zakończyć obwód?</h2><div class="sub">${AM.done.length} zaliczonych ćwiczeń · ${fmt(AM.elapsed)}</div><div class="stack"><button class="btn" data-act="am-finish">Zakończ i podsumuj</button><button class="btn danger" data-act="am-drop">Odrzuć i wyjdź</button><button class="btn secondary" data-act="modal-close">Wróć</button></div>`); return; }
     if(CAL.state==="idle"){ calLeave(); return; } openModal(`<h2>Zakończyć trening?</h2><div class="sub">${CAL.sets.length} ${plural(CAL.sets.length,"seria","serie","serii")} · ${fmt(CAL.elapsed)}</div><div class="stack"><button class="btn" data-act="cal-finish">Zakończ i podsumuj</button><button class="btn danger" data-act="cal-drop">Odrzuć i wyjdź</button><button class="btn secondary" data-act="modal-close">Wróć do treningu</button></div>`); },
   "cal-finish":()=>{ closeModal(); calFinish(); },
@@ -1384,7 +1397,8 @@ const ACT={
   "sum-kg-cycle":d=>{ const vals=tileValues(SUM.kg), cur=sumKgOf(d.slot,null), i=vals.indexOf(cur); const next=vals[(i+1)%vals.length]; sumMinutes(d.slot).forEach(m=>{ SUM.kgMin[m]=next; }); renderSummary(); },
   "sum-kg-m":d=>{ const m=+d.m, vals=tileValues(SUM.kg), cur=SUM.kgMin[m]!=null?SUM.kgMin[m]:SUM.kg, i=vals.indexOf(cur); SUM.kgMin[m]=vals[(i+1)%vals.length]; renderSummary(); },
   "sum-rounds":d=>{ SUM.open[d.slot]=!(SUM.open[d.slot]); renderSummary(); },
-  "t-video":()=>{ const cv=currentVideo(); if(!cv.vid) return; if(state==="run"||state==="prep") pauseRun(); openVideo(cv.vid,null,cv.ex); },
+  "t-video":()=>{ const cv=currentVideo(); if(!cv.vid) return; if(state==="run"||state==="prep") pauseRun(); openVideo(cv.vid,null,cv.ex,cv.alt); },
+  "video-alt":d=>{ openVideo(d.vid,null,d.ex||null,{vid:d.back,label:d.label,thisLabel:d.label==="Film ćwiczenia"?"Film treningu":"Film ćwiczenia"}); },
   "abort-save":()=>{ closeModal(); openSummary(false); },
   "abort-drop":()=>{ closeModal(); leaveTimer(); },
   "sum-more-round":()=>{ keepRepsEdits(); const base=plan.segs[0];
