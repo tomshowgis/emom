@@ -152,9 +152,8 @@
   .minute{margin-top:12px;font-size:15px;color:var(--work);font-weight:700;letter-spacing:.02em}
   .name{margin-top:6px;font-size:clamp(34px,10vw,48px);font-weight:800;line-height:1.05;letter-spacing:-.01em}
   .reps{margin-top:6px;font-size:clamp(22px,6.5vw,30px);font-weight:700;color:var(--work)}
-  .clock{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;container-type:size}
-  .clock span{font-size:min(52vw,300px,27vh);font-weight:900;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.04em}
-  @supports (font-size:1cqh){ .clock span{font-size:min(52vw,300px,92cqh)} }
+  .clock{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
+  .clock span{font-size:min(52vw,300px);font-weight:900;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.04em}
   .clock.warn span{color:var(--work)}
   .phase{text-align:center;font-size:18px;color:var(--muted);min-height:24px}
   .desc{margin-top:8px;font-size:15px;line-height:1.4;color:#d6d3cb;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -450,7 +449,7 @@ const PRESETS = [
    STAN (localStorage)
    ===================================================================== */
 const KEY="emom_v2";
-const DEFAULT_DB=()=>({v:2,custom:[],prefs:{},log:[],last:null,kg:16,bells:[8,10,12,16,20],bellsV2:true,calRest:90,ui:{videos:false}});
+const DEFAULT_DB=()=>({v:2,custom:[],prefs:{},log:[],last:null,kg:16,bells:[8,10,12,16,20],bellsV2:true,calRest:90,ui:{videos:false},pyr:{ex:"cal-pushup",from:2,to:20,step:2,mode:"solo",restMode:"mirror",spr:2}});
 let DB=(()=>{ try{ const d=JSON.parse(localStorage.getItem(KEY)); if(d&&d.v===2){ const m=Object.assign(DEFAULT_DB(),d);
   if(!d.bellsV2){ m.bells=[8,10,12,16,20]; m.bellsV2=true; } /* migracja: stare 3 kafle → pełny zestaw */
   return m; } }catch(e){} return DEFAULT_DB(); })();
@@ -608,6 +607,9 @@ function renderHome(){
   h+=`<div class="h2">Obwody na czas</div>`+PRESETS.filter(s=>s.kind==="amrap").map(setCard).join("");
   h+=`<div class="h2">Kalistenika</div>`+Object.entries(CAL_EX).map(([id,ex])=>{ const last=DB.log.find(e=>e.kind==="cal"&&e.sets&&e.sets.some(x=>x.ex===id));
     return `<div class="card tap" data-act="open-cal" data-ex="${id}"><h3>${esc(ex.name)}</h3><div class="sub">${ex.timed?"Serie na czas: zegar mierzy sekundy trzymania w każdej serii i przerwy.":"Liczą się powtórzenia w seriach. Stoper mierzy tylko cały trening i przerwy."}</div>${last?`<div class="sub">ostatnio: ${last.rounds} ${plural(last.rounds,"seria","serie","serii")} · ${ex.timed?fmt(last.hold||0):nf(last.reps)+" powt."} · ${when(last.date)}</div>`:""}</div>`; }).join("");
+  { const c=pyrCfg(), lad=pyrLadder(c), last=DB.log.find(e=>e.kind==="cal"&&e.pyr);
+    h+=`<div class="card tap" data-act="open-pyr"><h3>Piramida</h3><div class="sub">${CAL_EX[c.ex].name}: ${c.from} → ${c.to} co ${c.step} · ${lad.reduce((a,b)=>a+b,0)} powt. · ${c.mode==="duo"?"2 osoby na zmianę":"1 osoba, timer zastępuje partnera"}</div>
+      <div class="sub">Konfiguracja przed startem: zakres, krok, tryb.</div>${last?`<div class="sub">ostatnio: ${last.rounds} ${plural(last.rounds,"seria","serie","serii")} · ${nf(last.reps)} powt. · ${when(last.date)}</div>`:""}</div>`; }
   h+=`<div class="h2">Zestawy na partie ciała</div>`+PRESETS.filter(s=>!s.src).map(setCard).join("");
   const vOpen=!!(DB.ui&&DB.ui.videos);
   h+=`<button class="h2 tap" data-act="toggle-videos" aria-expanded="${vOpen}">Filmy źródłowe (${Object.keys(VIDEOS).length}) <span>${vOpen?"▾ zwiń":"▸ rozwiń"}</span></button>`;
@@ -824,8 +826,15 @@ function renderTiles(){
   el.innerHTML=vals.map(v=>`<button class="tile${v===cur?" on":""}" data-act="t-kg" data-kg="${v}" aria-label="${v} kg">${v} kg</button>`).join("");
   const on=el.querySelector(".tile.on"); if(on&&el.scrollWidth>el.clientWidth) el.scrollLeft=Math.max(0,on.offsetLeft-(el.clientWidth-on.offsetWidth)/2);
 }
+/* dopasowanie cyfr licznika do wolnego miejsca między opisem a przyciskami (bez container queries – iOS zwijał kontener) */
+let clockFs=0;
+function fitClock(){ const c=$("clock"), sp=$("sec"); if(!c) return; const h=c.clientHeight; if(!h) return;
+  const fs=Math.floor(Math.min(innerWidth*0.52,300,h*0.92)); if(Math.abs(fs-clockFs)>1){ clockFs=fs; sp.style.fontSize=fs+"px"; } }
+window.addEventListener("resize",()=>{ clockFs=0; if(plan) fitClock(); });
 function renderTimer(){
-  if(!plan) return;
+  if(!plan) return; renderTimerInner(); fitClock();
+}
+function renderTimerInner(){
   const fill=$("fill"), clock=$("clock"), seq=plan.seq, n=N(), sl=SL(), total=n*sl, base=plan.segs[0];
   $("t-video").hidden=!currentVideo().vid; $("t-sound").hidden=state!=="idle"; renderTiles();
   if(state==="idle"){
@@ -1017,7 +1026,7 @@ function repsPanelHtml(st,k){ const g=gripsOf(st.ex), name=CAL_EX[st.ex].name;
   return `<div class="setcard pending"><div class="nm" style="margin-bottom:8px">Seria ${k} · ${esc(name)} <span class="ds">(zmień chipem wyżej, jeśli to inne ćwiczenie)</span></div>${fields}
     <button class="btn small w100" style="margin-top:12px" data-act="cal-ok">✓ Zatwierdź serię ${k}</button></div>`; }
 function goCal(ex){
-  AM=null; CAL={ex,state:"idle",elapsed:0,lastTick:0,raf:null,sets:[],setStart:0,restStart:0,startedAt:null,beeped:false,repsKey:""};
+  AM=null; PY=null; CAL={ex,state:"idle",elapsed:0,lastTick:0,raf:null,sets:[],setStart:0,restStart:0,startedAt:null,beeped:false,repsKey:""};
   show("cal"); renderCal();
 }
 function renderCal(){
@@ -1069,7 +1078,7 @@ function calFinish(){
   else if(c.state==="rest"){ c.sets[c.sets.length-1].rest=Math.round(c.elapsed-c.restStart); }
   c.state="done"; releaseWake(); stopSilent(); renderCalSummary();
 }
-function calLeave(){ AM=null; if(CAL&&CAL.raf) cancelAnimationFrame(CAL.raf); releaseWake(); stopSilent(); CAL=null; closeModal(); goHome(); }
+function calLeave(){ AM=null; PY=null; if(CAL&&CAL.raf) cancelAnimationFrame(CAL.raf); releaseWake(); stopSilent(); CAL=null; closeModal(); goHome(); }
 function renderCalSummary(){
   const c=CAL, reps=calTotals(), secs=Math.floor(c.elapsed), n=c.sets.length, mixed=new Set(c.sets.map(x=>x.ex)).size>1;
   const exChips=(x,i)=>`<div class="filters" style="padding:6px 0 0">${Object.entries(CAL_EX).map(([id,e])=>`<button class="chip${id===x.ex?" on":""}" data-act="cal-sum-ex" data-idx="${i}" data-ex="${id}" style="min-height:36px;font-size:13px;padding:0 12px">${e.name}</button>`).join("")}</div>`;
@@ -1095,6 +1104,107 @@ function calEntry(){
 function calSave(){ DB.log.unshift(calEntry()); save(); const id=DB.log[0].id; calLeave(); toast("Zapisano w dzienniku"); return id; }
 
 /* =====================================================================
+   PIRAMIDA (pompki / podciągnięcia) – serie rosnące; 2 osoby na zmianę albo 1 osoba z „wirtualnym partnerem”
+   (przerwa = czas Twojej serii albo sekundy × powtórzenia). Ekran wspólny z kalisteniką (#s-cal).
+   ===================================================================== */
+let PY=null;
+function pyrCfg(){ return Object.assign({ex:"cal-pushup",from:2,to:20,step:2,mode:"solo",restMode:"mirror",spr:2},DB.pyr||{}); }
+function pyrLadder(c){ const l=[]; for(let r=c.from;r<=c.to;r+=c.step) l.push(r); if(!l.length) l.push(c.from); return l; }
+const pyrWord=(ex,n)=>ex==="cal-pullup"?plural(n,"podciągnięcie","podciągnięcia","podciągnięć"):plural(n,"pompka","pompki","pompek");
+function openPyrConfig(){
+  const c=pyrCfg(), lad=pyrLadder(c), total=lad.reduce((a,b)=>a+b,0);
+  openModal(`<h2>Piramida</h2><div class="sub">${lad.join(" · ")}<br>Razem <b>${total}</b> powt. w ${lad.length} seriach</div>
+    <div class="filters" style="padding:10px 0 4px">${["cal-pushup","cal-pullup"].map(id=>`<button class="chip${c.ex===id?" on":""}" data-act="pyr-ex" data-ex="${id}">${CAL_EX[id].name}</button>`).join("")}</div>
+    <div class="row" style="margin-top:8px"><div class="grow nm">Od</div>${stepper("pyr-from",c.from,{step:1,min:1,max:10})}</div>
+    <div class="row" style="margin-top:8px"><div class="grow nm">Do</div>${stepper("pyr-to",c.to,{step:1,min:2,max:40})}</div>
+    <div class="row" style="margin-top:8px"><div class="grow nm">Krok</div>${stepper("pyr-step",c.step,{step:1,min:1,max:5})}</div>
+    <div class="h2">Tryb</div>
+    <div class="filters" style="padding:0 0 4px">${[["solo","1 osoba"],["duo","2 osoby na zmianę"]].map(([k,l])=>`<button class="chip${c.mode===k?" on":""}" data-act="pyr-mode" data-mode="${k}">${l}</button>`).join("")}</div>
+    ${c.mode==="solo"?`<div class="sub" style="margin-top:6px">Po Twojej serii timer odlicza czas „partnera”:</div>
+    <div class="filters" style="padding:6px 0 4px">${[["mirror","tyle, ile trwała Twoja seria"],["perRep","sekundy × powtórzenia"]].map(([k,l])=>`<button class="chip${c.restMode===k?" on":""}" data-act="pyr-restmode" data-rm="${k}">${l}</button>`).join("")}</div>
+    ${c.restMode==="perRep"?`<div class="row" style="margin-top:6px"><div class="grow nm">Sekund na powtórzenie</div>${stepper("pyr-spr",c.spr,{step:1,min:1,max:6,unit:"s"})}</div>`:""}`
+    :`<div class="sub" style="margin-top:6px">Osoba A i B robią serie na zmianę. Jedna osoba trzyma telefon i naciska „Zmiana” po każdej serii. Do dziennika trafiają serie osoby A.</div>`}
+    <div class="stack"><button class="btn" data-act="pyr-start">Start</button><button class="btn secondary" data-act="modal-close">Anuluj</button></div>`);
+}
+function pyrSet(k,v){ DB.pyr=pyrCfg(); DB.pyr[k]=v; if(DB.pyr.to<DB.pyr.from) DB.pyr.to=DB.pyr.from; save(); openPyrConfig(); }
+function goPyr(){
+  const c=pyrCfg(); AM=null; CAL=null;
+  PY={cfg:c,ladder:pyrLadder(c),idx:0,turn:"A",state:"idle",elapsed:0,lastTick:0,raf:null,setStart:0,restStart:0,restDur:0,sets:[],startedAt:null,lastRW:null};
+  closeModal(); show("cal"); renderPyr();
+}
+const pyrMine=()=>PY.sets.filter(x=>!x.partner);
+function renderPyr(){
+  const y=PY; if(!y) return; const c=y.cfg, lad=y.ladder, reps=lad[Math.min(y.idx,lad.length-1)], total=lad.reduce((a,b)=>a+b,0), mine=pyrMine(), done=mine.reduce((a,x)=>a+x.reps,0);
+  const duo=c.mode==="duo", resting=y.state==="rest"||(y.state==="paused"&&y.prev==="rest");
+  $("cal-total").textContent=fmt(y.elapsed); $("cal-hint").hidden=y.state!=="idle"; $("cal-phase").hidden=false; $("cal-reps").hidden=true; $("cal-tiles").hidden=true; $("cal-video").hidden=true;
+  $("cal-serie").innerHTML=`Seria <b>${Math.min(y.idx+1,lad.length)}</b> / ${lad.length}${duo?` · osoba <b>${y.turn}</b>`:""}`;
+  $("cal-name").textContent=y.state==="done"?"Koniec piramidy":`${reps} ${pyrWord(c.ex,reps)}`;
+  $("cal-ex").innerHTML=lad.map((r,i)=>`<button class="chip${i===y.idx&&y.state!=="done"?" on":""}" style="min-height:40px;font-size:14px;padding:0 12px${i<y.idx||y.state==="done"?";opacity:.45":""}">${r}</button>`).join("");
+  const on=$("cal-ex").querySelector(".chip.on"); if(on){ const el=$("cal-ex"); if(el.scrollWidth>el.clientWidth) el.scrollLeft=Math.max(0,on.offsetLeft-(el.clientWidth-on.offsetWidth)/2); }
+  const clock=$("cal-clock"); clock.classList.toggle("rest",resting); clock.classList.remove("warn");
+  const fill=$("cfill");
+  if(resting){ const rem=Math.max(0,y.restDur-(y.elapsed-y.restStart)); $("cal-sec").textContent=fmt(Math.ceil(rem)); fill.style.background="var(--rest)"; fill.style.height=`${Math.min(100,(1-rem/Math.max(1,y.restDur))*100)}%`; }
+  else { $("cal-sec").textContent=fmt(y.state==="idle"||y.state==="done"?y.elapsed:y.elapsed-y.setStart); fill.style.background="var(--work)"; fill.style.height=y.state==="idle"?"0%":`${Math.min(100,done/total*100)}%`; }
+  const nxt=lad[y.idx+1];
+  $("cal-phase").innerHTML=y.state==="idle"?`<span class="ds">${lad.join(" · ")} = ${total} powt.</span>`
+    :resting?`<span style="color:var(--rest);font-weight:700;font-size:20px">partner robi ${reps}…</span><br><span class="ds">Twoja kolej za chwilę: ${nxt!=null?nxt:reps} powt.</span>`
+    :duo?`<span style="color:var(--work);font-weight:700;font-size:20px">teraz osoba ${y.turn}</span><br><span class="ds">potem osoba ${y.turn==="A"?"B":"A"}: ${y.turn==="A"?reps:(nxt!=null?nxt:"koniec")}</span>`
+    :`<span class="ds">zrób ${reps} powt. i naciśnij „Zrobione”${nxt!=null?` · następna seria: ${nxt}`:" · ostatnia seria"}</span>`;
+  const partnerDone=y.sets.filter(x=>x.partner).reduce((a,x)=>a+x.reps,0);
+  $("cal-sets").innerHTML=mine.length?`Zaliczone: <b>${mine.length}</b> ${plural(mine.length,"seria","serie","serii")} · <b>${done}</b> z ${total} powt.${duo?` · osoba B: ${partnerDone}`:""}`:"Jeszcze bez serii.";
+  if(y.state==="idle"){ $("cal-hint").textContent=duo?"Osoba A zaczyna. Po każdej serii naciśnij „Zmiana” – telefon przechodzi do drugiej osoby.":"Po serii naciśnij „Zrobione”. Timer odliczy czas partnera, a potem da sygnał na Twoją kolejną serię."; $("cal-mode").textContent=`Piramida ${c.from} → ${c.to} co ${c.step}`; $("cal-main").textContent="Start"; $("cal-end").textContent="Wróć"; return; }
+  if(y.state==="done"){ $("cal-mode").textContent="Zrobione"; $("cal-main").textContent="Podsumowanie"; $("cal-end").textContent="Wróć"; return; }
+  $("cal-mode").textContent=y.state==="paused"?"Pauza":(resting?"Przerwa – partner ćwiczy":(duo?`Seria ${y.idx+1} · osoba ${y.turn}`:`Twoja seria ${y.idx+1}`));
+  $("cal-main").textContent=y.state==="paused"?"Wznów":(resting?"Pomiń przerwę":(duo?"Zmiana ✓":"Zrobione ✓"));
+  $("cal-end").textContent=y.state==="paused"?"Zakończ":"Pauza";
+}
+function pyrTick(now){
+  const y=PY; if(!y||(y.state!=="set"&&y.state!=="rest")) return;
+  y.elapsed+=(now-y.lastTick)/1000; y.lastTick=now;
+  if(y.state==="rest"){ const rr=y.restDur-(y.elapsed-y.restStart), rw=Math.ceil(rr); if(rw!==y.lastRW){ y.lastRW=rw; if(rw>=1&&rw<=3) beepCount(); } if(rr<=0) pyrEndRest(true); }
+  renderPyr(); y.raf=requestAnimationFrame(pyrTick);
+}
+function pyrEndRest(auto){ const y=PY; if(y.state!=="rest") return; const last=y.sets[y.sets.length-1]; if(last) last.rest=Math.round(y.elapsed-y.restStart); y.state="set"; y.setStart=y.elapsed; if(auto) beepMinute(); renderPyr(); }
+function pyrFinishAll(){ const y=PY; cancelAnimationFrame(y.raf); y.state="done"; beepEnd(); releaseWake(); setTimeout(stopSilent,1500); renderPyr(); setTimeout(renderPyrSummary,900); }
+function pyrMain(){
+  const y=PY, c=y.cfg, lad=y.ladder;
+  if(y.state==="idle"){ y.startedAt=new Date().toISOString(); y.state="set"; y.setStart=0; unlockAudio(); beepMinute(); keepAwake(); y.lastTick=performance.now(); y.raf=requestAnimationFrame(pyrTick); renderPyr(); return; }
+  if(y.state==="paused"){ y.state=y.prev||"set"; unlockAudio(); keepAwake(); y.lastTick=performance.now(); y.raf=requestAnimationFrame(pyrTick); renderPyr(); return; }
+  if(y.state==="rest"){ pyrEndRest(false); return; }
+  if(y.state==="done"){ renderPyrSummary(); return; }
+  // koniec serii
+  const reps=lad[y.idx], dur=Math.max(1,Math.round(y.elapsed-y.setStart));
+  if(c.mode==="duo"){
+    y.sets.push({reps,dur,rest:0,partner:y.turn==="B"});
+    if(y.turn==="A"){ y.turn="B"; y.setStart=y.elapsed; beep(660,150,.5); }
+    else { y.turn="A"; y.idx++; y.setStart=y.elapsed; if(y.idx>=lad.length){ pyrFinishAll(); return; } beepMinute(); }
+  } else {
+    y.sets.push({reps,dur,rest:0});
+    y.idx++; if(y.idx>=lad.length){ pyrFinishAll(); return; }
+    y.restDur=c.restMode==="perRep"?reps*c.spr:dur; y.state="rest"; y.restStart=y.elapsed; y.lastRW=null; beep(440,250,.4);
+  }
+  if(navigator.vibrate) navigator.vibrate(40); renderPyr();
+}
+function pyrPause(){ const y=PY; if(y.state!=="set"&&y.state!=="rest") return; y.prev=y.state; y.state="paused"; cancelAnimationFrame(y.raf); stopSilent(); renderPyr(); }
+function pyrFinish(){ const y=PY; cancelAnimationFrame(y.raf); if(y.state==="set"&&y.elapsed-y.setStart>=3&&y.idx<y.ladder.length){ y.sets.push({reps:y.ladder[y.idx],dur:Math.round(y.elapsed-y.setStart),rest:0,partner:y.cfg.mode==="duo"&&y.turn==="B"}); } y.state="done"; releaseWake(); stopSilent(); renderPyr(); renderPyrSummary(); }
+function pyrLeave(){ if(PY&&PY.raf) cancelAnimationFrame(PY.raf); releaseWake(); stopSilent(); PY=null; closeModal(); goHome(); }
+function pyrEntry(){
+  const y=PY, c=y.cfg, mine=pyrMine(), reps=mine.reduce((a,x)=>a+x.reps,0), secs=Math.floor(y.elapsed);
+  return { id:Date.now(), date:y.startedAt||new Date().toISOString(), kind:"cal", pyr:true, setId:null, name:`Piramida ${CAL_EX[c.ex].name.toLowerCase()} ${c.from}→${c.to}${c.mode==="duo"?" · 2 osoby":""}`, rounds:mine.length, roundsDone:mine.length,
+    minutes:Math.round(secs/60), seconds:secs, kg:0, complete:y.idx>=y.ladder.length, reps, volume:0, hold:0,
+    sets:mine.map(x=>({ex:c.ex,name:CAL_EX[c.ex].name,reps:x.reps,hold:null,dur:x.dur,rest:x.rest})) };
+}
+function renderPyrSummary(){
+  const y=PY, c=y.cfg, mine=pyrMine(), reps=mine.reduce((a,x)=>a+x.reps,0), total=y.ladder.reduce((a,b)=>a+b,0), secs=Math.floor(y.elapsed), partner=y.sets.filter(x=>x.partner).reduce((a,x)=>a+x.reps,0);
+  const rows=mine.map((x,i)=>`<div class="exrow"><div class="row"><div class="grow"><div class="nm">Seria ${i+1}</div><div class="ds">${fmt(x.dur)} pracy${x.rest?` · przerwa ${fmt(x.rest)}`:""}</div></div><div class="nm">${x.reps}</div></div></div>`).join("");
+  openModal(`<h2>${y.idx>=y.ladder.length?"Piramida zdobyta! 💪":"Piramida przerwana"}</h2><div class="sub">${CAL_EX[c.ex].name} ${c.from}→${c.to} co ${c.step} · ${fmt(secs)} · <b>${reps}</b> z ${total} powt.${c.mode==="duo"?` · osoba B: ${partner}`:""}</div>
+    <div class="h2">Twoje serie</div>${rows||`<div class="empty">Brak zaliczonych serii.</div>`}
+    <div class="stat" style="margin-top:14px"><div><b>${reps}</b><span>powtórzeń</span></div><div><b>${mine.length}</b><span>${plural(mine.length,"seria","serie","serii")}</span></div><div><b>${fmt(secs)}</b><span>czas</span></div></div>
+    <div class="stack"><button class="btn" data-act="pyr-save" ${mine.length?"":"disabled"}>Zapisz w dzienniku</button><button class="btn secondary" data-act="pyr-save-garmin" ${mine.length?"":"disabled"}>Zapisz i wyślij do Garmin</button><button class="btn secondary" data-act="pyr-skip">Nie zapisuj</button></div>`,true);
+}
+function pyrSave(){ DB.log.unshift(pyrEntry()); save(); const id=DB.log[0].id; pyrLeave(); toast("Zapisano w dzienniku"); return id; }
+
+/* =====================================================================
    OBWÓD NA CZAS (AMRAP) – jak najwięcej rund w zadanym czasie; korzysta z ekranu kalisteniki (#s-cal)
    ===================================================================== */
 let AM=null; // {plan:{kind,setId,name,src,kg,time,items}, state: idle|run|paused|done, elapsed, idx, round, done:[{i,t,kg}], kgSlot, startedAt}
@@ -1104,7 +1214,7 @@ function startAmrapPlan(p){
   const plan=JSON.parse(JSON.stringify(p));
   AM={plan,state:"idle",elapsed:0,lastTick:0,raf:null,idx:0,round:1,done:[],kgSlot:{},startedAt:null,lastW:null};
   DB.last={plan:JSON.parse(JSON.stringify(plan)),at:new Date().toISOString()}; DB.kg=plan.kg; save();
-  CAL=null; show("cal"); renderAm();
+  CAL=null; PY=null; show("cal"); renderAm();
 }
 const amKg=i=>(AM.kgSlot[i]!=null?AM.kgSlot[i]:AM.plan.kg);
 function amTotals(){ let reps=0,vol=0; AM.done.forEach(d=>{ const it=AM.plan.items[d.i]; if(!it||it.rest||it.reps==null) return; reps+=it.reps; if(!it.bw) vol+=it.reps*(d.kg||0); }); return {reps,vol}; }
@@ -1386,12 +1496,16 @@ const ACT={
   "bk-replace":()=>applyBackup("replace"),
   "toggle-videos":()=>{ DB.ui=DB.ui||{}; DB.ui.videos=!DB.ui.videos; save(); renderHome(); },
   "open-cal":d=>goCal(d.ex),
-  "cal-ex":d=>{ if(!CAL||AM) return; CAL.ex=d.ex; if(CAL.state==="rest"){ const st=CAL.sets[CAL.sets.length-1]; if(st.ex!==d.ex){ switchSetEx(st,d.ex); st.ok=false; CAL.repsKey=""; } } renderCal(); },
+  "cal-ex":d=>{ if(!CAL||AM||PY) return; CAL.ex=d.ex; if(CAL.state==="rest"){ const st=CAL.sets[CAL.sets.length-1]; if(st.ex!==d.ex){ switchSetEx(st,d.ex); st.ok=false; CAL.repsKey=""; } } renderCal(); },
   "cal-ok":()=>{ const st=CAL.sets[CAL.sets.length-1]; st.ok=true; CAL.repsKey=""; renderCal(); toast(`Seria ${CAL.sets.length} zapisana`); },
   "cal-edit":()=>{ const st=CAL.sets[CAL.sets.length-1]; st.ok=false; CAL.repsKey=""; renderCal(); },
   "cal-sum-ex":d=>{ const st=CAL.sets[+d.idx]; switchSetEx(st,d.ex); renderCalSummary(); },
-  "cal-rest":d=>{ if(AM) return; DB.calRest=+d.t; save(); if(CAL){ CAL.beeped=CAL.state==="rest"&&(CAL.elapsed-CAL.restStart)>=DB.calRest; renderCal(); } },
-  "cal-main":()=>AM?amMain():calMain(),
+  "cal-rest":d=>{ if(AM||PY) return; DB.calRest=+d.t; save(); if(CAL){ CAL.beeped=CAL.state==="rest"&&(CAL.elapsed-CAL.restStart)>=DB.calRest; renderCal(); } },
+  "cal-main":()=>PY?pyrMain():(AM?amMain():calMain()),
+  "open-pyr":()=>openPyrConfig(),
+  "pyr-ex":d=>pyrSet("ex",d.ex), "pyr-mode":d=>pyrSet("mode",d.mode), "pyr-restmode":d=>pyrSet("restMode",d.rm),
+  "pyr-start":()=>goPyr(),
+  "pyr-finish":()=>{ closeModal(); pyrFinish(); }, "pyr-drop":()=>pyrLeave(), "pyr-save":()=>pyrSave(), "pyr-save-garmin":()=>{ const id=pyrSave(); openGarmin(id); }, "pyr-skip":()=>pyrLeave(),
   "am-video":()=>{ if(!AM) return; const it=AM.plan.items[AM.idx], exVid=it.src||null, setVid=AM.plan.src||null, vid=exVid||setVid; if(!vid) return;
       if(AM.state==="run"||AM.state==="rest") amPause(); openVideo(vid,null,exVid?it.name:null,(exVid&&setVid&&exVid!==setVid)?{vid:setVid,label:"Film treningu",thisLabel:"Film ćwiczenia"}:null); },
   "am-jump":d=>{ if(!AM||AM.state==="idle"||AM.state==="done"||AM.state==="rest") return; AM.idx=+d.i; renderAm(); },
@@ -1402,10 +1516,14 @@ const ACT={
   "am-save":()=>amSave(),
   "am-save-garmin":()=>{ const id=amSave(); openGarmin(id); },
   "am-skip":()=>amLeave(),
-  "cal-end":()=>{ if(AM){ if(AM.state==="idle"||AM.state==="done"){ amLeave(); return; } if(AM.state==="run"||AM.state==="rest"){ amPause(); return; }
+  "cal-end":()=>{ if(PY){ if(PY.state==="idle"||PY.state==="done"){ pyrLeave(); return; } if(PY.state==="set"||PY.state==="rest"){ pyrPause(); return; }
+      openModal(`<h2>Zakończyć piramidę?</h2><div class="sub">${pyrMine().length} ${plural(pyrMine().length,"seria","serie","serii")} · ${fmt(PY.elapsed)}</div><div class="stack"><button class="btn" data-act="pyr-finish">Zakończ i podsumuj</button><button class="btn secondary" data-act="modal-close">Wróć</button></div>`); return; }
+    if(AM){ if(AM.state==="idle"||AM.state==="done"){ amLeave(); return; } if(AM.state==="run"||AM.state==="rest"){ amPause(); return; }
       openModal(`<h2>Zakończyć obwód?</h2><div class="sub">${AM.done.length} zaliczonych ćwiczeń · ${fmt(AM.elapsed)}</div><div class="stack"><button class="btn" data-act="am-finish">Zakończ i podsumuj</button><button class="btn secondary" data-act="modal-close">Wróć</button></div>`); return; }
     if(CAL.state==="idle"){ calLeave(); return; } openModal(`<h2>Zakończyć trening?</h2><div class="sub">${CAL.sets.length} ${plural(CAL.sets.length,"seria","serie","serii")} · ${fmt(CAL.elapsed)}</div><div class="stack"><button class="btn" data-act="cal-finish">Zakończ i podsumuj</button><button class="btn secondary" data-act="modal-close">Wróć do treningu</button></div>`); },
-  "cal-abort":()=>{ if(AM){ if(AM.state==="idle"){ amLeave(); return; } if(AM.state==="run"||AM.state==="rest") amPause();
+  "cal-abort":()=>{ if(PY){ if(PY.state==="idle"){ pyrLeave(); return; } if(PY.state==="set"||PY.state==="rest") pyrPause();
+      openModal(`<h2>Zakończyć piramidę?</h2><div class="sub">${pyrMine().length} ${plural(pyrMine().length,"seria","serie","serii")} · ${fmt(PY.elapsed)}</div><div class="stack"><button class="btn" data-act="pyr-finish">Zakończ i podsumuj</button><button class="btn danger" data-act="pyr-drop">Odrzuć i wyjdź</button><button class="btn secondary" data-act="modal-close">Wróć</button></div>`); return; }
+    if(AM){ if(AM.state==="idle"){ amLeave(); return; } if(AM.state==="run"||AM.state==="rest") amPause();
       openModal(`<h2>Zakończyć obwód?</h2><div class="sub">${AM.done.length} zaliczonych ćwiczeń · ${fmt(AM.elapsed)}</div><div class="stack"><button class="btn" data-act="am-finish">Zakończ i podsumuj</button><button class="btn danger" data-act="am-drop">Odrzuć i wyjdź</button><button class="btn secondary" data-act="modal-close">Wróć</button></div>`); return; }
     if(CAL.state==="idle"){ calLeave(); return; } openModal(`<h2>Zakończyć trening?</h2><div class="sub">${CAL.sets.length} ${plural(CAL.sets.length,"seria","serie","serii")} · ${fmt(CAL.elapsed)}</div><div class="stack"><button class="btn" data-act="cal-finish">Zakończ i podsumuj</button><button class="btn danger" data-act="cal-drop">Odrzuć i wyjdź</button><button class="btn secondary" data-act="modal-close">Wróć do treningu</button></div>`); },
   "cal-finish":()=>{ closeModal(); calFinish(); },
@@ -1453,6 +1571,7 @@ const FIELD={
   "c-rounds":inp=>{ C.rounds=num(inp); renderCreatorParts(); },
   "c-kg":inp=>{ C.kg=num(inp); renderCreatorParts(); },
   "c-item":inp=>{ const it=C.items[+inp.dataset.idx]; const v=num(inp); if(it.work!=null) it.work=v; else { it.reps=v; it.range=null; } renderCreatorParts(); },
+  "pyr-from":inp=>pyrSet("from",num(inp)), "pyr-to":inp=>pyrSet("to",num(inp)), "pyr-step":inp=>pyrSet("step",num(inp)), "pyr-spr":inp=>pyrSet("spr",num(inp)),
   "sum-kg":inp=>{ const old=SUM.kg, v=num(inp); Object.keys(SUM.kgMin).forEach(m=>{ if(SUM.kgMin[m]===old) SUM.kgMin[m]=v; }); SUM.kg=v; renderSummary(); },
   "t-reps-val":inp=>{ num(inp); },
   "sum-reps-m":inp=>{ SUM.repsMin[+inp.dataset.idx]=num(inp); renderSummary(); },
