@@ -273,7 +273,7 @@
 /* =====================================================================
    DANE: filmy źródłowe, biblioteka ćwiczeń, predefiniowane sety
    ===================================================================== */
-const APP_VER="2026-10-02 b";
+const APP_VER="2026-10-02 c";
 const VIDEOS = {
   "BWao1Cu1RSg":{t:"Biceps and Abs on Fire",ch:"Vadim Kettlebell"},
   "hKEb4fulI0I":{t:"30-Minute EMOM Kettlebell Workout",ch:"Vadim Kettlebell"},
@@ -298,6 +298,7 @@ const VIDEOS = {
   "DLHhHwhqjXY":{t:"One kettlebell. 10 movements. 30 minutes. (EMOM 30)",ch:"Vadim Kettlebell"},
   "RkE_vngK4Iw":{t:"15-min Kettlebell TABATA Fat Burner",ch:"Vadim Kettlebell"},
   "FqNmeXYkAi0":{t:"40 min kettlebell EMOM",ch:"Vadim Kettlebell"},
+  "L1WTYGzNodE":{t:"Goblet Groover – 20-Min AMRAP",ch:"Vadim Kettlebell"},
   "XuvxplfUF-4":{t:"Brutally Effective Beginner Kettlebell Complex – Full Body",ch:"FitDad"},
 };
 const TAGS = ["biceps","triceps","barki","klatka","plecy","brzuch","nogi","pośladki","cardio"];
@@ -348,6 +349,8 @@ const EXERCISES = [
   {id:"goblet-squat",name:"Goblet Squat",desc:"Przysiad z kettlem przy klatce; klatka wysoko, kolana na zewnątrz.",reps:10,range:"10–12",tags:["nogi","pośladki"],src:"2jyYS8B0TK8"},
   {id:"split-stance-lunge",name:"Split-Stance Lunge",desc:"Wykrok w rozkroku z kettlem trzymanym jak walizka, po 5 na stronę.",reps:10,tags:["nogi","pośladki"],src:"2jyYS8B0TK8"},
   {id:"curl-press",name:"Curl + Press",desc:"Uginanie ramion, a potem wyciśnięcie nad głowę; kontrolowany powrót.",reps:6,range:"6–8",tags:["biceps","barki"],src:"2jyYS8B0TK8"},
+  {id:"goblet-dead-high-pull",name:"Goblet Dead High Pull",desc:"Z martwego punktu na podłodze wyciągasz kettla oburącz do brody, łokcie wysoko; każde powtórzenie zaczyna się z ziemi.",reps:4,tags:["plecy","barki","nogi"],src:"L1WTYGzNodE"},
+  {id:"inchworm",name:"Inchworm to Stand",desc:"Ze stania schodzisz dłońmi po podłodze do podporu, wracasz dłońmi do stóp i wstajesz; bez kettla.",reps:4,bw:true,tags:["brzuch","klatka","nogi","cardio"],src:"L1WTYGzNodE"},
   {id:"squat-to-lunge",name:"Squat to Lunge",desc:"Przysiad goblet, a zaraz po nim wykrok w tył; nogi zmieniasz co powtórzenie.",work:20,tags:["nogi","pośladki","cardio"],src:"RkE_vngK4Iw"},
   {id:"ballistic-row",name:"Ballistic Row",desc:"Dynamiczne wiosłowanie oburącz w opadzie – kettel „wystrzeliwuje” do brzucha i wraca luźno między nogi.",work:20,tags:["plecy","biceps","cardio"],src:"RkE_vngK4Iw"},
   {id:"kneeling-halo",name:"Kneeling Halo",desc:"Halo w klęku obunóż – kettel krąży wokół głowy, biodra wypchnięte, brzuch napięty.",reps:10,tags:["barki","brzuch"],src:"DLHhHwhqjXY"},
@@ -435,6 +438,8 @@ const PRESETS = [
     I("goblet-curl",8),I("chop",12,"6 + 6"),I("kneeling-press",12,"6 + 6"),I("sumo-high-pull",8),I("v-sit-halo",8),I("knee-elbow-pushup",8)]},
   {id:"am-arm-destroyer",kind:"amrap",name:"400 Reps Arm Destroyer",focus:"barki + biceps · 10 rund × 4 ćwiczenia po 10 powt. = 400 powt. · 90 s przerwy między rundami",src:"zCSbSuyBdEo",rounds:1,time:2400,goalRounds:10,roundRest:90,items:[
     I("front-raise",10),I("front-to-back",10),I("upright-row",10),I("goblet-curl",10)]},
+  {id:"am-goblet-groover",kind:"amrap",name:"Goblet Groover",focus:"całe ciało · AMRAP 20 min · 4 ćwiczenia po 4 powt.",src:"L1WTYGzNodE",rounds:1,time:1200,items:[
+    I("goblet-dead-high-pull",4),I("upright-row",4),I("goblet-squat",4),I("inchworm",4)]},
   /* zestawy autorskie zbudowane z biblioteki */
   {id:"a-legs",name:"Nogi & pośladki",focus:"nogi + pośladki",src:null,rounds:5,items:[
     I("goblet-squat",12),I("goblet-back-lunge-alt",14),I("romanian-deadlift",16),I("russian-swing",20)]},
@@ -1355,7 +1360,7 @@ const FIT_CAT={ "biceps-curl":7,"goblet-curl":7,"squatted-curl":7,"curl-press":7
   "overhead-march":3,"russian-swing":12,"alt-swing":12,"american-swing":12,"swing-clean-push-press":18,"dead-clean-push-press-alt":18,
   "goblet-clean-squat":28,"goblet-squat":28,"thruster":28,"bent-row-alt":23,"bent-over-row":23,"upright-row":23,"sumo-high-pull":23,"high-pull-alt":23,"high-pull-complex":29,
   "goblet-back-lunge-alt":17,"front-rack-lunge":17,"split-stance-lunge":17,"kneeling-goblet-press":24,"goblet-shoulder-press":24,"push-press":24,"front-to-back":24,
-  "squat-to-lunge":17,"ballistic-row":23,"kneeling-halo":5,"thruster-1arm":28,"pushup-shoulder-tap":22,"suitcase-lunge":17,"plank":19,"atlas-swing":12,"side-swing-clean":18,"z-tuck":5,"reverse-plank-overbell":19,"samurai-chop":4,"dead-bug":5,"chop":4,"kneeling-press":24,"v-sit-halo":5,"knee-elbow-pushup":22,"extended-halo":5,"around-the-world":5,"swing-clean":18,"leg-raise":16,"russian-twist":5,"crunch":6,"hollow-body":5,"romanian-deadlift":8,"burpee":29,"goblet-floor-press":0,"horizontal-press-twist":0,"pushup":22,"front-raise":14,"goblet-front-side-raise-alt":14 };
+  "goblet-dead-high-pull":23,"inchworm":5,"squat-to-lunge":17,"ballistic-row":23,"kneeling-halo":5,"thruster-1arm":28,"pushup-shoulder-tap":22,"suitcase-lunge":17,"plank":19,"atlas-swing":12,"side-swing-clean":18,"z-tuck":5,"reverse-plank-overbell":19,"samurai-chop":4,"dead-bug":5,"chop":4,"kneeling-press":24,"v-sit-halo":5,"knee-elbow-pushup":22,"extended-halo":5,"around-the-world":5,"swing-clean":18,"leg-raise":16,"russian-twist":5,"crunch":6,"hollow-body":5,"romanian-deadlift":8,"burpee":29,"goblet-floor-press":0,"horizontal-press-twist":0,"pushup":22,"front-raise":14,"goblet-front-side-raise-alt":14 };
 function fitCrc(bytes,len){
   const T=[0x0000,0xCC01,0xD801,0x1400,0xF001,0x3C00,0x2800,0xE401,0xA001,0x6C00,0x7800,0xB401,0x5000,0x9C01,0x8801,0x4400]; let c=0;
   for(let i=0;i<len;i++){ const b=bytes[i]; let t=T[c&0xF]; c=(c>>4)&0x0FFF; c=c^t^T[b&0xF]; t=T[c&0xF]; c=(c>>4)&0x0FFF; c=c^t^T[(b>>4)&0xF]; }
