@@ -273,6 +273,7 @@
 /* =====================================================================
    DANE: filmy źródłowe, biblioteka ćwiczeń, predefiniowane sety
    ===================================================================== */
+const APP_VER="2026-10-02 b";
 const VIDEOS = {
   "BWao1Cu1RSg":{t:"Biceps and Abs on Fire",ch:"Vadim Kettlebell"},
   "hKEb4fulI0I":{t:"30-Minute EMOM Kettlebell Workout",ch:"Vadim Kettlebell"},
@@ -614,7 +615,7 @@ function renderHome(){
   const vOpen=!!(DB.ui&&DB.ui.videos);
   h+=`<button class="h2 tap" data-act="toggle-videos" aria-expanded="${vOpen}">Filmy źródłowe (${Object.keys(VIDEOS).length}) <span>${vOpen?"▾ zwiń":"▸ rozwiń"}</span></button>`;
   if(vOpen) h+=Object.entries(VIDEOS).map(([id,v])=>`<div class="card row"><div class="grow"><div class="nm">${esc(v.t)}</div><div class="sub">${esc(v.ch)}</div></div><button class="play" data-act="video" data-vid="${id}" aria-label="Film">▶</button></div>`).join("");
-  h+=`<div class="empty">Biblioteka: ${EXERCISES.length-1} ćwiczeń · ${PRESETS.length} setów wbudowanych</div>`;
+  h+=`<div class="empty">Biblioteka: ${EXERCISES.length-1} ćwiczeń · ${PRESETS.length} setów wbudowanych<br>wersja ${APP_VER}</div>`;
   const sc=$("home").scrollTop; $("home").innerHTML=h; $("home").scrollTop=sc;
 }
 
