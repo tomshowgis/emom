@@ -9,7 +9,7 @@ import board
 import analogio
 import digitalio
 
-DIVIDER = 3.1  # community value; calibrate against the multimeter
+DIVIDER = 3.07  # calibrated 2026-10-05: multimeter 4.11 V vs 4.15 V at 3.1
 
 en = digitalio.DigitalInOut(board.READ_BATT_ENABLE)
 en.direction = digitalio.Direction.OUTPUT
