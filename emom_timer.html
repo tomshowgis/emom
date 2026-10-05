@@ -273,7 +273,7 @@
 /* =====================================================================
    DANE: filmy źródłowe, biblioteka ćwiczeń, predefiniowane sety
    ===================================================================== */
-const APP_VER="2026-10-02 c";
+const APP_VER="2026-10-05 a";
 const VIDEOS = {
   "BWao1Cu1RSg":{t:"Biceps and Abs on Fire",ch:"Vadim Kettlebell"},
   "hKEb4fulI0I":{t:"30-Minute EMOM Kettlebell Workout",ch:"Vadim Kettlebell"},
@@ -299,6 +299,7 @@ const VIDEOS = {
   "RkE_vngK4Iw":{t:"15-min Kettlebell TABATA Fat Burner",ch:"Vadim Kettlebell"},
   "FqNmeXYkAi0":{t:"40 min kettlebell EMOM",ch:"Vadim Kettlebell"},
   "L1WTYGzNodE":{t:"Goblet Groover – 20-Min AMRAP",ch:"Vadim Kettlebell"},
+  "d0pY67OlxFA":{t:"40 min EMOM – Upper Body",ch:"Vadim Kettlebell"},
   "XuvxplfUF-4":{t:"Brutally Effective Beginner Kettlebell Complex – Full Body",ch:"FitDad"},
 };
 const TAGS = ["biceps","triceps","barki","klatka","plecy","brzuch","nogi","pośladki","cardio"];
@@ -416,6 +417,8 @@ const PRESETS = [
   {id:"p-morning5",name:"Poranna rutyna 5 min",focus:"mobilność + pompa · 10 × 30 s bez przerwy (lekki kettel)",src:"rzTj7omKIR4",rounds:1,slot:30,items:[
     I("around-the-world",null,null,{work:30}),I("upright-row",null,null,{work:30}),I("halo",null,null,{work:30}),I("front-to-back",null,null,{work:30}),I("russian-swing",null,null,{work:30}),
     I("romanian-deadlift",null,null,{work:30}),I("swing-clean",null,null,{work:30}),I("goblet-back-lunge-alt",null,null,{work:30}),I("goblet-shoulder-press",null,null,{work:30}),I("squatted-curl",null,null,{work:30})]},
+  {id:"p-emom40-upper",name:"EMOM 40 · Upper Body",focus:"plecy + barki + klatka + brzuch · 7 ćwiczeń + minuta przerwy × 5 rund",src:"d0pY67OlxFA",rounds:5,items:[
+    I("bent-over-row",14,"12–16"),I("goblet-dead-high-pull",10,"8–12"),I("goblet-shoulder-press",10,"8–12"),I("upright-row",10,"8–12"),I("pushup",14,"12–16"),I("goblet-floor-press",14,"12–16"),I("dead-bug",14,"12–16"),I("rest")]},
   {id:"p-emom40-arms",name:"EMOM 40 · Arms & Core",focus:"ramiona + barki + brzuch · 7 ćwiczeń + minuta przerwy × 5 rund",src:"FqNmeXYkAi0",rounds:5,items:[
     I("front-to-back",12),I("squatted-curl",12),I("goblet-shoulder-press",12),I("ballistic-row",16),I("front-raise",12),I("side-drags",16),I("reverse-mountain-climb",20),I("rest")]},
   {id:"p-emom30-10",name:"One Kettlebell · 10 Movements",focus:"całe ciało · EMOM 30 min, 9 ćwiczeń + minuta przerwy × 3 rundy",src:"DLHhHwhqjXY",rounds:3,items:[
