@@ -1,0 +1,4 @@
+# Install onto the CIRCUITPY drive with:
+#   .venv/bin/circup install -r repcounter/firmware/requirements-circup.txt
+adafruit_lsm6ds
+adafruit_ble
