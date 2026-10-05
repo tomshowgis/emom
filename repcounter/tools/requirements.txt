@@ -1,0 +1,9 @@
+bleak
+pyserial
+dash
+plotly
+pandas
+numpy
+scipy
+matplotlib
+circup

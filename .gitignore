@@ -3,3 +3,4 @@ emom_timer_v1.html
 .DS_Store
 .venv/
 repcounter/firmware/dist/
+repcounter/data/
