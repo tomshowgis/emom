@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[3]  # repo root
 TIMER = ROOT / "emom_timer.html"
 
 MOUNTS = [
-    ("kettlebell", "Kettlebell (dno)"),
+    ("kettlebell", "Kettlebell (przód, połowa wysokości, USB do góry)"),
     ("chest", "Klatka (klips na koszulce)"),
     ("wrist", "Nadgarstek"),
     ("belt", "Pasek"),

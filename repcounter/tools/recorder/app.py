@@ -195,4 +195,7 @@ def browse(paths):
 
 
 def main():
+    import logging
+    logging.getLogger("werkzeug").setLevel(logging.WARNING)  # hide per-request lines from the terminal
+    print("Rejestrator: http://127.0.0.1:8050  (Ctrl-C konczy)")
     app.run(debug=False, host="127.0.0.1", port=8050)

@@ -24,6 +24,6 @@ Zakładka „Przeglądanie”: zaznacz jedną lub kilka sesji → osobne wykresy
 - Zmierzone 2026-10-05: 100,1 Hz, 0 zgubionych ramek w 10 s, RSSI −60…−67 dBm przy biurku. Odstępy próbek 4–16 ms (drgania pętli), średnio 10 ms.
 
 ## Co dalej w etapie 1
-- Pierwsze nagrania prawdziwych serii (swing 8 kg, płytka na dnie kettlebella), sprawdzenie zasięgu i gubienia ramek w ruchu.
+- Pierwsze nagrania prawdziwych serii (swing 8 kg, płytka na przodzie kettlebella w połowie wysokości, USB do góry, pod spodem taśma izolująca od żeliwa), sprawdzenie zasięgu i gubienia ramek w ruchu.
 - Kalibracja offsetu akcelerometru (moduł w spoczynku ~10,1 zamiast 9,81).
 - Zaznaczanie początku/końca serii wewnątrz nagrania, jeśli start/stop ręczny okaże się za mało dokładny.
