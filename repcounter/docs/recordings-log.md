@@ -18,7 +18,8 @@ Nagrania leżą lokalnie w `repcounter/data/raw/` (poza gitem). Tu tylko wnioski
 - Żyroskop Y: 10 wyraźnych zębów piły na serię, niezależny drugi sygnał.
 - Seria 144253 (wolna): liczba powtórzeń orientacyjna (`count_uncertain`), nie liczyć do trafności. Seria 144410: brudna (odstawienie po 5., poprawka chwytu).
 
-## Halo (Alt) (kettlebell dnem do góry, USB w dół) — 5 serii, wpisane po 10, 2026-10-10
+## Halo (Alt) (kettlebell dnem do góry, USB w dół, czujnik po stronie ciała) — 5 serii, wpisane po 10, 2026-10-10
+- Chwyt za rogi dnem do góry obraca front kuli do ciała: czujnik zostaje na tej samej ściance, ale jest między ćwiczącym a kettlebellem. Technika jak na https://youtube.com/shorts/k-YcemjRASg (kettlebell idzie lekko na ukos w pierwszej fazie, w stronę kierunku okrążenia).
 - Ruch widać na wszystkich osiach; okrążenie = pełny cykl grawitacji na acc X i Y plus obrót wokół pionu (gyro Z ±4–7 rad/s) o znaku zmieniającym się co okrążenie (naprzemienność).
 - Start serii: podniesienie z podłogi do klatki z obrotem dnem do góry. W seriach 150221, 150326, 150405 daje szczyt acc X **bez** obrotu gyro Z → do odrzucenia po żyroskopie. W 150133 pierwszy szczyt ma już obrót.
 - Po odrzuceniu szczytów bez obrotu zostaje 10 (150221) albo 11 (150133, 150326, 150405). Rozbieżność ±1 nierozstrzygnięta: dodatkowe okrążenie przy liczeniu na głos albo powrót kettlebella na koniec serii wygląda jak okrążenie. **Do rozstrzygnięcia nagraniem z wideo.** Do tego czasu serie halo traktować jako prawdę ±1.
