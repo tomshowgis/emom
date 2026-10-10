@@ -65,3 +65,6 @@ Po każdym etapie zatrzymaj się i poczekaj na mój wynik testu.
 
 ## Pierwszy krok
 Przeczytaj pliki w repozytorium, sprawdź system na moim komputerze, zadaj mi pytania, bez których nie ruszysz, i przedstaw plan etapu 0. Kodu jeszcze nie pisz.
+
+## Otwarta propozycja (2026-10-10): tryb treningowy rejestratora
+Treningi użytkownika na najbliższy czas = zbieranie danych. Zamiast klikać start/stop na każdą serię: rejestrator nagrywa ciągiem, timer wysyła znaczniki (początek minuty, id ćwiczenia, przerwa, koniec), a liczby powtórzeń pochodzą z podsumowania timera po treningu (ręczna korekta jak dziś). Realizacja: rejestrator na Macu serwuje stronę timera w sieci lokalnej (`http://<mac>.local:8050/timer`), iPhone otwiera ją zamiast GitHub Pages; dziennik z tej instancji scala się później przez kopię JSON. To pierwsza część etapu 4 po Wi-Fi; przy natywnej nakładce te same znaczniki idą po BLE. Czeka na decyzję użytkownika.
