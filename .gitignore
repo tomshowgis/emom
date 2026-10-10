@@ -4,3 +4,5 @@ emom_timer_v1.html
 .venv/
 repcounter/firmware/dist/
 repcounter/data/
+__pycache__/
+*.pyc

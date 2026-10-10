@@ -188,7 +188,7 @@ def recording_buttons(_s, _x, _sv, _dc, exercise, mount, true_reps, tempo, notes
         return hidden, "", "", None, "", []
     if trig == "btn-stop":
         if not REC["active"]:
-            return no_update, no_update, no_update, no_update, no_update
+            return no_update, no_update, no_update, no_update, no_update, no_update
         STREAM.stop_stream()
         time.sleep(0.4)
         REC.update(active=False, pending=STREAM.snapshot())
