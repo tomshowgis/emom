@@ -99,6 +99,12 @@ app.layout = html.Div(style={"fontFamily": "system-ui, sans-serif", "padding": "
                                                                value=EXERCISES[0][0] if EXERCISES else None, clearable=False, style={"width": "360px"})]),
                 html.Div([html.Label("Mocowanie"), dcc.Dropdown(id="mount", options=[{"label": n, "value": i} for i, n in MOUNTS],
                                                                value="kettlebell", clearable=False, style={"width": "260px"})]),
+                html.Div([html.Label("Orientacja"), dcc.Dropdown(id="orientation", options=[
+                    {"label": "USB do góry (uchwyt u góry)", "value": "usb-up"},
+                    {"label": "USB w dół (kettlebell dnem do góry)", "value": "usb-down"},
+                    {"label": "USB w bok", "value": "usb-side"},
+                    {"label": "inna (opisz w uwagach)", "value": "other"}],
+                    value="usb-up", clearable=False, style={"width": "300px"})]),
                 html.Button("▶ Start serii", id="btn-start", style={"height": "36px", "fontWeight": "700"}),
                 html.Button("■ Stop", id="btn-stop", style={"height": "36px"}),
                 html.Span(id="rec-status", style={"fontWeight": "600", "color": "#c00"}),
@@ -111,6 +117,7 @@ app.layout = html.Div(style={"fontFamily": "system-ui, sans-serif", "padding": "
                     html.Div([html.Label("Tempo"), dcc.Dropdown(id="tempo", options=[{"label": t, "value": t} for t in ["normalne", "wolne", "szybkie", "mieszane"]],
                                                                value="normalne", clearable=False, style={"width": "160px"})]),
                     html.Div([html.Label("Uwagi (np. odstawienie, poprawka chwytu)"), dcc.Input(id="notes", type="text", style={"width": "420px"})]),
+                    dcc.Checklist(id="dirty", options=[{"label": " brudna seria (celowe zakłócenia)", "value": "dirty"}], value=[], style={"paddingBottom": "6px"}),
                     html.Button("Zapisz", id="btn-save", style={"height": "36px", "fontWeight": "700"}),
                     html.Button("Odrzuć", id="btn-discard", style={"height": "36px"}),
                 ]),
@@ -164,20 +171,21 @@ def refresh(_n):
 
 
 @app.callback(Output("save-form", "style"), Output("save-summary", "children"), Output("save-result", "children"),
-              Output("true-reps", "value"), Output("notes", "value"),
+              Output("true-reps", "value"), Output("notes", "value"), Output("dirty", "value"),
               Input("btn-start", "n_clicks"), Input("btn-stop", "n_clicks"), Input("btn-save", "n_clicks"), Input("btn-discard", "n_clicks"),
               State("exercise", "value"), State("mount", "value"), State("true-reps", "value"), State("tempo", "value"), State("notes", "value"),
+              State("orientation", "value"), State("dirty", "value"),
               prevent_initial_call=True)
-def recording_buttons(_s, _x, _sv, _dc, exercise, mount, true_reps, tempo, notes):
+def recording_buttons(_s, _x, _sv, _dc, exercise, mount, true_reps, tempo, notes, orientation, dirty):
     hidden, shown = {"display": "none"}, {"display": "block", "border": "1px solid #ccc", "padding": "12px", "margin": "8px 0", "borderRadius": "8px"}
     trig = ctx.triggered_id
     if trig == "btn-start":
         if STREAM.state != "connected":
-            return hidden, "", "Najpierw połącz z urządzeniem.", no_update, no_update
+            return hidden, "", "Najpierw połącz z urządzeniem.", no_update, no_update, no_update
         STREAM.clear()
         STREAM.start_stream()
         REC.update(active=True, t0=time.time(), pending=None)
-        return hidden, "", "", None, ""
+        return hidden, "", "", None, "", []
     if trig == "btn-stop":
         if not REC["active"]:
             return no_update, no_update, no_update, no_update, no_update
@@ -187,23 +195,24 @@ def recording_buttons(_s, _x, _sv, _dc, exercise, mount, true_reps, tempo, notes
         n = len(REC["pending"])
         dur = (REC["pending"][-1].t_ms - REC["pending"][0].t_ms) / 1000 if n > 1 else 0
         name = dict(EXERCISES).get(exercise, exercise)
-        return shown, f"{name} · {dict(MOUNTS).get(mount, mount)} · {dur:.1f} s · {n} próbek · zgubione ramki: {STREAM.dropped_frames}", "", None, ""
+        return shown, f"{name} · {dict(MOUNTS).get(mount, mount)} · {dur:.1f} s · {n} próbek · zgubione ramki: {STREAM.dropped_frames}", "", None, "", []
     if trig == "btn-save":
         if not REC["pending"]:
-            return hidden, "", "Nie ma czego zapisać.", no_update, no_update
+            return hidden, "", "Nie ma czego zapisać.", no_update, no_update, no_update
         if true_reps is None:
-            return shown, no_update, "Podaj faktyczną liczbę powtórzeń.", no_update, no_update
+            return shown, no_update, "Podaj faktyczną liczbę powtórzeń.", no_update, no_update, no_update
         meta = {"exercise_id": exercise, "exercise_name": dict(EXERCISES).get(exercise, exercise), "mount": mount,
-                "true_reps": int(true_reps), "tempo": tempo, "notes": notes or "", "device": "EMOM-REP",
+                "true_reps": int(true_reps), "tempo": tempo, "notes": notes or "", "orientation": orientation,
+                "dirty": bool(dirty), "device": "EMOM-REP",
                 "rate_hz": STREAM.status.rate_hz if STREAM.status else None, "dropped_frames": STREAM.dropped_frames,
                 "firmware": "stream v1", "person": "TS"}
         path = save_session(REC["pending"], meta)
         REC["pending"] = None
-        return hidden, "", f"Zapisano {path.relative_to(path.parents[3])}", None, ""
+        return hidden, "", f"Zapisano {path.relative_to(path.parents[3])}", None, "", []
     if trig == "btn-discard":
         REC["pending"] = None
-        return hidden, "", "Odrzucono.", None, ""
-    return no_update, no_update, no_update, no_update, no_update
+        return hidden, "", "Odrzucono.", None, "", []
+    return no_update, no_update, no_update, no_update, no_update, no_update
 
 
 @app.callback(Output("exercise", "options"), Output("progress", "children"), Input("save-result", "children"), prevent_initial_call=True)
