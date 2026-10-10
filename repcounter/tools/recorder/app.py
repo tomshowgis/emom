@@ -27,6 +27,40 @@ COLORS = ["#1f77b4", "#d62728", "#2ca02c", "#9467bd", "#ff7f0e", "#17becf"]
 app = Dash(__name__, title="EMOM rep recorder")
 
 
+TARGET_SETS = 5
+START_SIX = ["biceps-curl", "situp-press", "side-drags", "russian-swing", "cal-pushup", "cal-pullup"]
+
+
+def set_counts() -> dict[str, int]:
+    """Recorded sets per exercise id (only sets with at least one real rep)."""
+    counts: dict[str, int] = {}
+    for m in list_sessions():
+        if (m.get("true_reps") or 0) > 0:
+            counts[m["exercise_id"]] = counts.get(m["exercise_id"], 0) + 1
+    return counts
+
+
+def exercise_options() -> list[dict]:
+    counts = set_counts()
+    opts = []
+    for i, n in EXERCISES:
+        c = counts.get(i, 0)
+        mark = "✅ " if c >= TARGET_SETS else ("● " if c else "")
+        opts.append({"label": f"{mark}{n}" + (f" · {c}/{TARGET_SETS} serii" if c else ""), "value": i})
+    return opts
+
+
+def progress_text() -> str:
+    counts = set_counts()
+    names = dict(EXERCISES)
+    parts = [f"{names.get(i, i)} {counts.get(i, 0)}/{TARGET_SETS}" for i in START_SIX]
+    extra = [f"{names.get(i, i)} {c}" for i, c in sorted(counts.items()) if i not in START_SIX]
+    txt = "Postęp nagrań: " + " · ".join(parts)
+    if extra:
+        txt += "  |  inne: " + " · ".join(extra)
+    return txt
+
+
 def session_label(m: dict) -> str:
     reps = m.get("true_reps", "?")
     return f"{m['day']} {m['file'][:6]} · {m.get('exercise_name', m.get('exercise_id'))} · {m.get('mount')} · {reps} powt. · {m.get('duration_s', 0)} s"
@@ -61,14 +95,15 @@ app.layout = html.Div(style={"fontFamily": "system-ui, sans-serif", "padding": "
     dcc.Tabs(id="tabs", value="rec", children=[
         dcc.Tab(label="Nagrywanie", value="rec", children=[
             html.Div(style={"display": "flex", "gap": "12px", "alignItems": "end", "flexWrap": "wrap", "margin": "12px 0"}, children=[
-                html.Div([html.Label("Ćwiczenie"), dcc.Dropdown(id="exercise", options=[{"label": n, "value": i} for i, n in EXERCISES],
-                                                               value=EXERCISES[0][0] if EXERCISES else None, clearable=False, style={"width": "320px"})]),
+                html.Div([html.Label("Ćwiczenie"), dcc.Dropdown(id="exercise", options=exercise_options(),
+                                                               value=EXERCISES[0][0] if EXERCISES else None, clearable=False, style={"width": "360px"})]),
                 html.Div([html.Label("Mocowanie"), dcc.Dropdown(id="mount", options=[{"label": n, "value": i} for i, n in MOUNTS],
                                                                value="kettlebell", clearable=False, style={"width": "260px"})]),
                 html.Button("▶ Start serii", id="btn-start", style={"height": "36px", "fontWeight": "700"}),
                 html.Button("■ Stop", id="btn-stop", style={"height": "36px"}),
                 html.Span(id="rec-status", style={"fontWeight": "600", "color": "#c00"}),
             ]),
+            html.Div(id="progress", children=progress_text(), style={"color": "#444", "fontSize": "13px", "margin": "0 0 8px"}),
             html.Div(id="save-form", style={"display": "none", "border": "1px solid #ccc", "padding": "12px", "margin": "8px 0", "borderRadius": "8px"}, children=[
                 html.Div(id="save-summary", style={"marginBottom": "8px"}),
                 html.Div(style={"display": "flex", "gap": "12px", "alignItems": "end", "flexWrap": "wrap"}, children=[
@@ -169,6 +204,11 @@ def recording_buttons(_s, _x, _sv, _dc, exercise, mount, true_reps, tempo, notes
         REC["pending"] = None
         return hidden, "", "Odrzucono.", None, ""
     return no_update, no_update, no_update, no_update, no_update
+
+
+@app.callback(Output("exercise", "options"), Output("progress", "children"), Input("save-result", "children"), prevent_initial_call=True)
+def refresh_exercise_marks(_saved):
+    return exercise_options(), progress_text()
 
 
 @app.callback(Output("sessions", "options"), Input("btn-refresh", "n_clicks"), Input("tabs", "value"), Input("save-result", "children"))
