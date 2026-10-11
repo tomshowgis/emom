@@ -114,14 +114,14 @@ def now_ms():
 
 print("stream firmware ready, rate", RATE_HZ, "Hz")
 while True:
-    led_b.value = True
-    led_r.value = False
+    led_r.value = False  # red + blue = purple: waiting for a connection
+    led_b.value = False
     ble.start_advertising(adv)
     print("advertising", NAME)
     while not ble.connected:
         time.sleep(0.1)
     ble.stop_advertising()
-    led_r.value = True
+    led_r.value = True   # blue only: connected
     led_b.value = False
     conn = ble.connections[0]
 
