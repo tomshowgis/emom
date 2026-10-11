@@ -53,6 +53,7 @@ Po każdym etapie zatrzymaj się i poczekaj na mój wynik testu.
 2b. Uczenie maszynowe na komputerze: te same nagrania, porównanie z algorytmem bazowym, wyjaśnienie każdego kroku. Decyzja, co idzie na płytkę.
 3. Liczenie w urządzeniu: przeniesienie algorytmu na płytkę i protokół Bluetooth (zdarzenia powtórzeń ze znacznikiem czasu, wybór ćwiczenia i miejsca mocowania, zerowanie / start minuty, stan baterii).
 4. Integracja z timerem: licznik na żywo, zerowanie przy zmianie ćwiczenia, zapis wyniku każdej minuty, ręczna korekta, konfiguracja sposobu liczenia dla ćwiczenia. Timer ma działać normalnie także bez czujnika.
+   Pomysł do tego etapu (2026-10-11): naklejki NFC (NTAG) na kettlebellach z zapisaną wagą; natywna nakładka czyta tag przez CoreNFC i ustawia kafelek kg dla bieżącego ćwiczenia. Czujnik tagów nie czyta (nRF52840 ma NFC tylko w roli tagu), waga jest potrzebna timerowi, nie licznikowi.
 5. Zasilanie: usypianie, budzenie ruchem, pomiar czasu pracy na baterii.
 
 ## Jak pracujemy
