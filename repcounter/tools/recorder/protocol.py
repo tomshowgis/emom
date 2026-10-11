@@ -65,3 +65,18 @@ def parse_frame(data: bytes):
         (ci4,) = struct.unpack_from("<H", data, 19) if len(data) >= 21 else (0,)
         return seq, Status(t, vbat, bool(chg), bool(strm), rate, stall, drops, ci4 / 4.0)
     return None
+
+
+# Typical 1-cell Li-Po open-circuit curve under light load (V -> %). Rough by design:
+# the cell has no fuel gauge, and while charging the voltage reads high.
+_LIPO_CURVE = [(4.20, 100), (4.10, 90), (4.00, 78), (3.90, 62), (3.80, 45), (3.70, 25), (3.60, 10), (3.50, 3), (3.40, 0)]
+
+
+def lipo_percent(vbat_mv: int) -> int:
+    v = vbat_mv / 1000.0
+    if v >= _LIPO_CURVE[0][0]:
+        return 100
+    for (v1, p1), (v2, p2) in zip(_LIPO_CURVE, _LIPO_CURVE[1:]):
+        if v >= v2:
+            return int(round(p2 + (p1 - p2) * (v - v2) / (v1 - v2)))
+    return 0

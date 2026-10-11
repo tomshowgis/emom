@@ -14,6 +14,7 @@ from plotly.subplots import make_subplots
 
 from .ble_stream import BleStreamer
 from .exercises import MOUNTS, load_exercises
+from .protocol import lipo_percent
 from .storage import list_sessions, load_session, samples_to_df, save_session
 
 STREAM = BleStreamer(buffer_seconds=900)
@@ -158,7 +159,10 @@ def refresh(_n):
     batt = ""
     if STREAM.status:
         s = STREAM.status
-        batt = f"bateria {s.vbat_mv/1000:.2f} V{' ⚡' if s.charging else ''}"
+        pct = lipo_percent(s.vbat_mv)
+        batt = f"bateria {pct} % ({s.vbat_mv/1000:.2f} V){' ⚡ ładowanie' if s.charging else ''}"
+        if pct < 15 and not s.charging:
+            batt = "⚠ " + batt + " – naładuj"
     link = f"ramki {STREAM.frames}, zgubione {STREAM.dropped_frames}" if STREAM.frames else ""
     if STREAM.status and (STREAM.status.stall_max_ms > 50 or STREAM.status.tx_drops):
         link += f" · płytka: przestój {STREAM.status.stall_max_ms} ms, odrzucone {STREAM.status.tx_drops}"
