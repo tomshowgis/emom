@@ -160,6 +160,10 @@ def refresh(_n):
         s = STREAM.status
         batt = f"bateria {s.vbat_mv/1000:.2f} V{' ⚡' if s.charging else ''}"
     link = f"ramki {STREAM.frames}, zgubione {STREAM.dropped_frames}" if STREAM.frames else ""
+    if STREAM.status and (STREAM.status.stall_max_ms > 50 or STREAM.status.tx_drops):
+        link += f" · płytka: przestój {STREAM.status.stall_max_ms} ms, odrzucone {STREAM.status.tx_drops}"
+    if STREAM.status and STREAM.status.conn_interval_ms:
+        link += f" · interwał {STREAM.status.conn_interval_ms:.2f} ms"
     rec = ""
     if REC["active"]:
         gn, gms = STREAM.gap_stats()

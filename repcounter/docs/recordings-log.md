@@ -40,3 +40,7 @@ Nagrania leżą lokalnie w `repcounter/data/raw/` (poza gitem). Tu tylko wnioski
 ## Sumo High Pull (kettlebell, USB do góry) — 4 serie (10, 10, 5 szybka, 6 brudna), 2026-10-11
 - Najłatwiejszy dotąd przypadek: naiwnie 10/10, 10/10, 5/5 na acc X (jeden wyraźny szczyt na powtórzenie, podniesienie i odstawienie nie generują szczytów o podobnej wysokości). Brudna seria (164226, „kilka powtórzeń nie czysto technicznie”): 8 przy 6.
 - Ruch w acc X z lekkim udziałem gyro Y; brak podwójnego szczytu jak w swingu mimo tej samej rodziny balistycznej.
+
+## Luki czasu w nagraniach z 2026-10-11 po 16:40
+- Serie 164018, 164051, 164112, 164226 (sumo high pull) i 164533, 164626, 164706, 164737 (curl + press) mają 2,8–12,6 s brakującego czasu (`gaps: true`). Nie liczyć do trafności; do powtórzenia. Przyczyna i naprawa: `hardware-notes.md`, sekcja „Przepustowość BLE”.
+- Wstępne obserwacje z tych serii (wymagają potwierdzenia na czystych nagraniach): sumo high pull = jeden szczyt acc X na powtórzenie, naiwnie trafia; curl + press = szerokie plateau acc Z na powtórzenie z dwoma garbami (curl i press), naiwnie 17 na 10.

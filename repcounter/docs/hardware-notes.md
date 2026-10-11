@@ -73,3 +73,10 @@ macOS 26.6.2, Python 3.12.13 (Homebrew), `.venv` w katalogu repo: circup 3.1.0, 
 - Poprawka w `04_battery.py`: `READ_BATT_ENABLE` trzymany nisko przez cały czas pomiaru (niski to stan bezpieczny), uśrednianie 16 próbek, zielona dioda jako oznaka życia do testu pracy bez USB.
 - Kalibracja dzielnika (2026-10-05): miernik Alatron MU-02D na padach 4,11 V przy odczycie płytki 4,15 V (współczynnik 3,1). Poprawiony współczynnik **3,07** (= 3,1 × 4,11 / 4,15). Dokładność miernika ok. ±1 %, więc to kalibracja orientacyjna; wystarczy do wskaźnika baterii.
 - Praca z akumulatora: po odłączeniu USB płytka działa dalej (zielona dioda miga). **Etap 0 zamknięty 2026-10-05.**
+
+## Przepustowość BLE i interwał połączenia (2026-10-11)
+- Objaw: od pewnego momentu sesji zegar płytki stawał na 0,4–1 s kilkadziesiąt razy na serię (łącznie 6–12 s na nagranie) przy zerowych zgubionych ramkach. Tempo spadało do ~77 Hz, stałe 4 ramki/s.
+- Przyczyna: macOS wydłużył interwał połączenia z 15 ms do 30 ms (oszczędzanie energii po dłuższym czasie). Przy 30 ms i ramkach 244 B radio nie nadążało, a zapis do charakterystyki (`Characteristic.value = ...`) blokował pętlę próbkowania.
+- Naprawa w `firmware/stream/code.py`: (1) `_bleio.PacketBuffer` z pierścieniem 16 pakietów zamiast bezpośredniego zapisu; (2) po połączeniu `conn.connection_interval = 15` i ponowna prośba co 2 s, gdy interwał odpłynie powyżej 17 ms (dokumentacja: peer może odmówić, wtedy wartość zostaje); (3) przy przestoju > 30 ms ramka jest zamykana i wysyłana częściowa, znaczniki czasu zostają uczciwe, brakujące próbki są stracone, nie dorabiane; (4) status co 2 s niesie najdłuższy przestój, liczbę odrzuconych ramek i interwał.
+- Pomiar po naprawie: 100,1 Hz, przestój max 7 ms, dt 3–17 ms, 0 odrzuconych, interwał 15 ms, RSSI −64 dBm. Źródło API: https://docs.circuitpython.org/en/latest/shared-bindings/_bleio/index.html (Connection.connection_interval, PacketBuffer.write „blocks until the data is pending”).
+- Rejestrator pokazuje luki czasu na żywo i w podsumowaniu; w metadanych `time_gaps_ms`, `gap_count`, `gaps`, `rssi`, `vbat_mv`.

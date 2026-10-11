@@ -7,7 +7,9 @@
 #   type 1: u32 t_ms (time of first sample), u8 n, u8 dt_ms, then n * 6 * int16
 #           acc  in units of 1/400 m/s^2  (LSB = 2.5 mm/s^2, range +-82 m/s^2)
 #           gyro in units of 1/1000 rad/s (LSB = 1 mrad/s,  range +-32 rad/s)
-#   type 2: u32 t_ms, u16 vbat_mV, u8 charging, u8 streaming, u16 sample_rate_hz
+#   type 2: u32 t_ms, u16 vbat_mV, u8 charging, u8 streaming, u16 sample_rate_hz,
+#           u16 stall_max_ms (longest sampling stall since last status), u16 tx_drops (frames dropped, ring full),
+#           u16 conn_interval in 0.25 ms units
 # Commands from host (ASCII): "S" start, "X" stop, "B" status now,
 # "M<bytes>" max notification payload the host can receive (MTU-3); device packs frames to fit.
 import struct
@@ -30,6 +32,7 @@ ACC_SCALE = 400.0
 GYR_SCALE = 1000.0
 VBAT_DIVIDER = 3.07
 STATUS_EVERY_MS = 2000
+WANT_INTERVAL_MS = 15  # ask the central for a short connection interval (more packets per second)
 
 
 def out(pin, off=True):
@@ -71,22 +74,38 @@ ble = BLERadio()
 ble.name = NAME
 uart = UARTService()
 adv = ProvideServicesAdvertisement(uart)
-# UARTService.write() splits into 20-byte notifications; write the bound
-# characteristic directly so one frame = one notification of up to MTU-3 bytes.
+# UARTService.write() splits into 20-byte notifications and setting the
+# characteristic value blocks while the radio is busy. A PacketBuffer with a
+# ring of TX_RING packets lets the sampling loop keep running through short
+# BLE stalls (headphones on the same radio, bad RSSI); one frame = one packet.
+import _bleio
 tx_char = uart._tx.bound_characteristic  # pylint: disable=protected-access
+TX_RING = 16
+tx_buf = _bleio.PacketBuffer(tx_char, buffer_size=TX_RING, max_packet_size=244)
 
 seq = 0
+
+
+conn_interval_x4 = None  # set per connection
+stall_max_ms = 0   # longest single sampling-loop stall since last status
+tx_drops = 0       # frames not written because the TX ring was full
 
 
 def send(payload):
     global seq
     frame = struct.pack("<BBBH", 0xA5, 0x5A, payload[0], seq & 0xFFFF) + payload[1:]
     seq += 1
-    tx_char.value = frame
+    return tx_buf.write(frame)
 
 
 def send_status(t_ms, streaming):
-    send(struct.pack("<BIHBBH", 2, t_ms & 0xFFFFFFFF, vbat_mv(), 0 if chg.value else 1, 1 if streaming else 0, RATE_HZ))
+    # type 2: t_ms u32, vbat mV u16, charging u8, streaming u8, rate u16, stall_max_ms u16, tx_drops u16
+    global stall_max_ms
+    pkt = struct.pack("<BIHBBHHHH", 2, t_ms & 0xFFFFFFFF, vbat_mv(), 0 if chg.value else 1,
+                      1 if streaming else 0, RATE_HZ, min(stall_max_ms, 65535), min(tx_drops, 65535),
+                      conn_interval_x4() if conn_interval_x4 else 0)
+    stall_max_ms = 0
+    send(pkt)
 
 
 def now_ms():
@@ -118,6 +137,20 @@ while True:
 
     mtu, per_frame = frame_size()
     print("connected, packet", mtu, "bytes ->", per_frame, "samples/frame")
+    try:
+        print("conn interval", conn.connection_interval, "ms; requesting", WANT_INTERVAL_MS)
+        conn.connection_interval = WANT_INTERVAL_MS
+        time.sleep(0.5)
+        print("conn interval now", conn.connection_interval, "ms")
+    except Exception as e:  # pylint: disable=broad-except
+        print("conn interval error", e)
+
+    def _ci():
+        try:
+            return int(conn.connection_interval * 4)  # units of 0.25 ms
+        except Exception:  # pylint: disable=broad-except
+            return 0
+    conn_interval_x4 = _ci
 
     streaming = False
     buf = bytearray(11 + 12 * per_frame)
@@ -151,9 +184,23 @@ while True:
                 send_status(now_ms(), streaming)
         t = now_ms()
         if streaming and t >= next_t:
-            next_t += DT_MS
-            if t - next_t > 200:  # fell far behind (e.g. BLE stall): resync
+            late = t - next_t
+            if late > stall_max_ms:
+                stall_max_ms = late
+            if late > 30:
+                # sampling stalled (BLE busy): close the partial frame so its nominal
+                # timestamps stay honest, then resync; the missed samples are lost.
+                if n:
+                    struct.pack_into("<BBBHIBB", buf, 0, 0xA5, 0x5A, 1, seq & 0xFFFF, t_first & 0xFFFFFFFF, n, DT_MS)
+                    seq += 1
+                    try:
+                        if tx_buf.write(memoryview(buf)[: 11 + 12 * n]) == 0:
+                            tx_drops += 1
+                    except Exception as e:  # pylint: disable=broad-except
+                        print("tx error", e)
+                    n = 0
                 next_t = t
+            next_t += DT_MS
             ax, ay, az = imu.acceleration
             gx, gy, gz = imu.gyro
             if n == 0:
@@ -168,7 +215,8 @@ while True:
                 struct.pack_into("<BBBHIBB", buf, 0, 0xA5, 0x5A, 1, seq & 0xFFFF, t_first & 0xFFFFFFFF, n, DT_MS)
                 seq += 1
                 try:
-                    tx_char.value = buf
+                    if tx_buf.write(buf) == 0:
+                        tx_drops += 1
                 except Exception as e:  # pylint: disable=broad-except
                     print("tx error", e)
                 n = 0
@@ -179,6 +227,13 @@ while True:
                 send_status(t, streaming)
             except Exception as e:  # pylint: disable=broad-except
                 print("status tx error", e)
+            # the central may stretch the interval again (power saving); ask for 15 ms back
+            try:
+                if conn.connection_interval > WANT_INTERVAL_MS + 2:
+                    print("conn interval drifted to", conn.connection_interval, "ms; re-requesting")
+                    conn.connection_interval = WANT_INTERVAL_MS
+            except Exception as e:  # pylint: disable=broad-except
+                print("conn interval error", e)
         if not streaming:
             time.sleep(0.02)
     led_g.value = True

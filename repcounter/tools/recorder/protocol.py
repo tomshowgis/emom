@@ -34,6 +34,9 @@ class Status:
     charging: bool
     streaming: bool
     rate_hz: int
+    stall_max_ms: int = 0
+    tx_drops: int = 0
+    conn_interval_ms: float = 0.0
 
 
 def parse_frame(data: bytes):
@@ -58,5 +61,7 @@ def parse_frame(data: bytes):
         if len(data) < 15:
             return None
         t, vbat, chg, strm, rate = struct.unpack_from("<IHBBH", data, 5)
-        return seq, Status(t, vbat, bool(chg), bool(strm), rate)
+        stall, drops = struct.unpack_from("<HH", data, 15) if len(data) >= 19 else (0, 0)
+        (ci4,) = struct.unpack_from("<H", data, 19) if len(data) >= 21 else (0,)
+        return seq, Status(t, vbat, bool(chg), bool(strm), rate, stall, drops, ci4 / 4.0)
     return None
