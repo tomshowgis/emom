@@ -44,3 +44,8 @@ Nagrania leżą lokalnie w `repcounter/data/raw/` (poza gitem). Tu tylko wnioski
 ## Luki czasu w nagraniach z 2026-10-11 po 16:40
 - Serie 164018, 164051, 164112, 164226 (sumo high pull) i 164533, 164626, 164706, 164737 (curl + press) mają 2,8–12,6 s brakującego czasu (`gaps: true`). Nie liczyć do trafności; do powtórzenia. Przyczyna i naprawa: `hardware-notes.md`, sekcja „Przepustowość BLE”.
 - Wstępne obserwacje z tych serii (wymagają potwierdzenia na czystych nagraniach): sumo high pull = jeden szczyt acc X na powtórzenie, naiwnie trafia; curl + press = szerokie plateau acc Z na powtórzenie z dwoma garbami (curl i press), naiwnie 17 na 10.
+
+## Sumo High Pull — powtórka po naprawie BLE (kettlebell, USB do góry) — 4 serie (6, 7, 10, 8 wolna), 2026-10-11 19:53–19:56
+- Zero luk czasu, RSSI −79 dBm (słaby, ale wystarcza przy interwale 15 ms), bateria 4,20 V.
+- Jeden wyraźny szczyt acc X na powtórzenie (0 → −20 m/s², amplituda ~20). Naiwnie +1…+3: dodatkowe to odstawienie (garb ~1/3 wysokości) i podniesienie; próg amplitudy względem typowego szczytu w serii to załatwia, jak w curlu.
+- Serie z 16:40 (z lukami) zostają tylko jako przykład awarii.
