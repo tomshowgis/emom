@@ -6,3 +6,6 @@ repcounter/firmware/dist/
 repcounter/data/
 __pycache__/
 *.pyc
+wideo/
+*.mov
+*.mp4

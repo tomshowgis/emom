@@ -49,3 +49,7 @@ Nagrania leżą lokalnie w `repcounter/data/raw/` (poza gitem). Tu tylko wnioski
 - Zero luk czasu, RSSI −79 dBm (słaby, ale wystarcza przy interwale 15 ms), bateria 4,20 V.
 - Jeden wyraźny szczyt acc X na powtórzenie (0 → −20 m/s², amplituda ~20). Naiwnie +1…+3: dodatkowe to odstawienie (garb ~1/3 wysokości) i podniesienie; próg amplitudy względem typowego szczytu w serii to załatwia, jak w curlu.
 - Serie z 16:40 (z lukami) zostają tylko jako przykład awarii.
+
+## Curl + Press — powtórka po naprawie BLE (kettlebell, USB do góry) — 4 serie (15 z wideo, 10 mieszane, 6, 10 brudna), 2026-10-11 19:59–20:02
+- Zero luk, RSSI −79 dBm. Seria 195917: prawda z wideo (15 powt., `ground_truth: video`, film lokalnie w `wideo/`, folder poza gitem).
+- Jedno powtórzenie = dwa podruchy (curl, potem press) = dwa szczyty acc Z; naiwnie dokładnie 2× (30/15, 20/10, 15/6; brudna 24/10). Klasyczny przypadek ćwiczenia złożonego: liczenie cykli na częstotliwości powtórzenia (nie podruchu) albo profil „2 szczyty = 1 powtórzenie”. Dobry test na podwójne liczenie i na wybór pasma filtru.
