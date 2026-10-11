@@ -36,3 +36,7 @@ Nagrania leżą lokalnie w `repcounter/data/raw/` (poza gitem). Tu tylko wnioski
 - Obrót dnem do góry przerzuca acc X z −10 na +10 na czas serii; powtórzenia to oscylacje ±5 m/s² na tym plateau. Naiwnie 11–12 na 10: jeden dodatkowy garb w obrębie plateau (prawdopodobnie ustawienie po obrocie lub ostatnie opuszczenie) plus odstawienie poza plateau.
 - Sygnał słabszy względem tła niż w curlu i swingu; dobry test czułości dla liczenia cykli. Żyroskop nieużyteczny poza momentem obrotu kettlebella (gyro X/Z ±4 rad/s na starcie i końcu = wyraźne granice serii!).
 - Seria 160834 brudna, 160725 wolna (7 powt.).
+
+## Sumo High Pull (kettlebell, USB do góry) — 4 serie (10, 10, 5 szybka, 6 brudna), 2026-10-11
+- Najłatwiejszy dotąd przypadek: naiwnie 10/10, 10/10, 5/5 na acc X (jeden wyraźny szczyt na powtórzenie, podniesienie i odstawienie nie generują szczytów o podobnej wysokości). Brudna seria (164226, „kilka powtórzeń nie czysto technicznie”): 8 przy 6.
+- Ruch w acc X z lekkim udziałem gyro Y; brak podwójnego szczytu jak w swingu mimo tej samej rodziny balistycznej.
