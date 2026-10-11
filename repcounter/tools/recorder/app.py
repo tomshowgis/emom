@@ -162,7 +162,9 @@ def refresh(_n):
     link = f"ramki {STREAM.frames}, zgubione {STREAM.dropped_frames}" if STREAM.frames else ""
     rec = ""
     if REC["active"]:
-        rec = f"● NAGRYWAM {time.time() - REC['t0']:.0f} s, próbek {len(STREAM.samples)}"
+        gn, gms = STREAM.gap_stats()
+        warn = f" · ⚠ LUKI {gms/1000:.1f} s ({gn})" if gms > 300 else ""
+        rec = f"● NAGRYWAM {time.time() - REC['t0']:.0f} s, próbek {len(STREAM.samples)}{warn}"
     # live window: last 10 s
     last = list(itertools.islice(reversed(STREAM.samples), 1000))[::-1]
     df = samples_to_df(last)
@@ -195,7 +197,9 @@ def recording_buttons(_s, _x, _sv, _dc, exercise, mount, true_reps, tempo, notes
         n = len(REC["pending"])
         dur = (REC["pending"][-1].t_ms - REC["pending"][0].t_ms) / 1000 if n > 1 else 0
         name = dict(EXERCISES).get(exercise, exercise)
-        return shown, f"{name} · {dict(MOUNTS).get(mount, mount)} · {dur:.1f} s · {n} próbek · zgubione ramki: {STREAM.dropped_frames}", "", None, "", []
+        gn, gms = STREAM.gap_stats()
+        gap_txt = f" · ⚠ luki czasu {gms/1000:.1f} s w {gn} miejscach, nagraj ponownie" if gms > 300 else " · luki czasu: brak"
+        return shown, f"{name} · {dict(MOUNTS).get(mount, mount)} · {dur:.1f} s · {n} próbek · zgubione ramki: {STREAM.dropped_frames}{gap_txt}", "", None, "", []
     if trig == "btn-save":
         if not REC["pending"]:
             return hidden, "", "Nie ma czego zapisać.", no_update, no_update, no_update
@@ -203,7 +207,9 @@ def recording_buttons(_s, _x, _sv, _dc, exercise, mount, true_reps, tempo, notes
             return shown, no_update, "Podaj faktyczną liczbę powtórzeń.", no_update, no_update, no_update
         meta = {"exercise_id": exercise, "exercise_name": dict(EXERCISES).get(exercise, exercise), "mount": mount,
                 "true_reps": int(true_reps), "tempo": tempo, "notes": notes or "", "orientation": orientation,
-                "dirty": bool(dirty), "device": "EMOM-REP",
+                "dirty": bool(dirty), "device": "EMOM-REP", "rssi": STREAM.rssi,
+                "vbat_mv": STREAM.status.vbat_mv if STREAM.status else None,
+                "gap_count": STREAM.gap_stats()[0], "time_gaps_ms": STREAM.gap_stats()[1], "gaps": STREAM.gap_stats()[1] > 500,
                 "rate_hz": STREAM.status.rate_hz if STREAM.status else None, "dropped_frames": STREAM.dropped_frames,
                 "firmware": "stream v1", "person": "TS"}
         path = save_session(REC["pending"], meta)

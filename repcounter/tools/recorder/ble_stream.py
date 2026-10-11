@@ -62,6 +62,18 @@ class BleStreamer:
             self.dropped_frames = 0
             self._last_seq = None
 
+    def gap_stats(self) -> tuple[int, int]:
+        """(number of inter-sample gaps > 30 ms, total missing ms) in the buffered samples."""
+        with self._lock:
+            ts = [s.t_ms for s in self.samples]
+        n, total = 0, 0
+        for a, b in zip(ts, ts[1:]):
+            d = b - a
+            if d > 30:
+                n += 1
+                total += d - 10
+        return n, total
+
     def snapshot(self) -> list[Sample]:
         with self._lock:
             return list(self.samples)
