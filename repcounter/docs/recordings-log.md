@@ -26,3 +26,13 @@ Nagrania leżą lokalnie w `repcounter/data/raw/` (poza gitem). Tu tylko wnioski
 - **Seria 151425 z wideo (prawda = 4 okrążenia, pauzy 2 s po podniesieniu i przed odstawieniem):** na acc X 5 szczytów, z czego pierwszy (podniesienie, 4,9 s) ma gyro Z ≈ 0,5 rad/s, a cztery kolejne 2,3–3,0 rad/s. Reguła „szczyt acc X + obrót gyro Z ≥ ~1,5 rad/s” daje dokładnie 4/4. Odstawienie nie wytworzyło szczytu z obrotem.
 - Wniosek: w seriach 150133, 150326, 150405 sygnał pokazuje 11 obrotów przy wpisanych 10, czyli najpewniej liczenie na głos zgubiło jedno okrążenie. Oznaczone `count_uncertain`.
 - Wniosek metodyczny: przy ćwiczeniach naprzemiennych i złożonych prawda z liczenia na głos jest zawodna; wzorcem powinno być wideo z telefonu (pole `ground_truth: "video"` w JSON).
+
+## Goblet Squat (kettlebell, USB do góry) — 4 serie (10, 10, 6 wolna, 7 szybka), 2026-10-11
+- Powtórzenie = mały szczyt acc X na starcie zejścia, głęboka dolina na dole (hamowanie i zawrócenie), drugi szczyt na górze. Naiwnie 22 na 10. Dolin dokładnie 10; dla przysiadu znacznikiem jest minimum, nie maksimum.
+- Żyroskop prawie milczy (std < 0,5 rad/s). Podniesienie z podłogi = pojedynczy szczyt 2× wyższy od reszty.
+- Wniosek na algorytm bazowy: liczyć pełne cykle (filtr pasmowy wokół wykrytego tempa + przejścia przez zero), a nie szczyty o zadanej polaryzacji; profil ćwiczenia trzyma tylko progi (tempo, amplituda, obrót).
+
+## Goblet Shoulder Press (kettlebell dnem do góry, USB w dół, czujnik od strony zewnętrznej: czujnik–kettlebell–człowiek) — 6 serii, 2026-10-11
+- Obrót dnem do góry przerzuca acc X z −10 na +10 na czas serii; powtórzenia to oscylacje ±5 m/s² na tym plateau. Naiwnie 11–12 na 10: jeden dodatkowy garb w obrębie plateau (prawdopodobnie ustawienie po obrocie lub ostatnie opuszczenie) plus odstawienie poza plateau.
+- Sygnał słabszy względem tła niż w curlu i swingu; dobry test czułości dla liczenia cykli. Żyroskop nieużyteczny poza momentem obrotu kettlebella (gyro X/Z ±4 rad/s na starcie i końcu = wyraźne granice serii!).
+- Seria 160834 brudna, 160725 wolna (7 powt.).
