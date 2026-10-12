@@ -21,10 +21,10 @@ Profile (granice tempa jednego powtórzenia, fizjologiczne): curl 0,8–8 s, swi
 | Russian Swing | 4 | 4 | 0 |
 | Sumo High Pull | 4 | 4 | 0 |
 | Goblet Bent Row | 4 | 4 | 0 |
-| Halo | 3 | 3 | 1 |
-| Goblet Squat | 4 | 4 | 2 |
-| Goblet Shoulder Press | 6 | 5 | 8 |
-| Curl + Press | 4 | 2 | 11 |
+| Halo | 3 | 3 | 2 |
+| Goblet Squat | 4 | 4 | 1 |
+| Goblet Shoulder Press | 6 | 5 | 10 |
+| Curl + Press | 4 | 2 | 9 |
 | **razem** | **34** | **31 (91 %)** | **22 (6,7 %)** |
 
 Przebieg iteracji: naiwne szczyty na jednej osi → 14 % błędu; + bramka obrotu i min(szczyty, doliny) → 11 %; + granice tempa w profilach → 9,1 %; + PCA zamiast jednej osi → 6,7 %. Wszystkie czyste serie w tempie normalnym, wolnym i szybkim liczą się w tolerancji; zostają brudne i mieszane.
