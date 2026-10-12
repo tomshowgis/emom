@@ -84,6 +84,26 @@ def axis_figure(frames: list[tuple[str, object]], height: int = 1100, window: fl
     return fig
 
 
+def figure_3d(frames: list[tuple[str, object]]) -> go.Figure:
+    """Low-passed acc and gyro vectors as curves in 3-D; each rep draws one loop."""
+    from scipy.signal import butter, filtfilt
+    fig = make_subplots(rows=1, cols=2, specs=[[{"type": "scene"}, {"type": "scene"}]],
+                        subplot_titles=["akcelerometr [m/s²]", "żyroskop [rad/s]"])
+    b, a = butter(2, 3.0 / 50.0)
+    for k, (name, df) in enumerate(frames):
+        if len(df) < 20:
+            continue
+        color = COLORS[k % len(COLORS)]
+        for col, (x, y, z) in enumerate([("ax", "ay", "az"), ("gx", "gy", "gz")], start=1):
+            fig.add_trace(go.Scatter3d(x=filtfilt(b, a, df[x]), y=filtfilt(b, a, df[y]), z=filtfilt(b, a, df[z]),
+                                       mode="lines", name=name, legendgroup=name, showlegend=(col == 1),
+                                       line={"width": 2, "color": color}), row=1, col=col)
+    fig.update_layout(height=620, margin={"l": 0, "r": 0, "t": 40, "b": 0}, legend={"orientation": "h", "y": 1.05},
+                      scene={"xaxis_title": "X", "yaxis_title": "Y", "zaxis_title": "Z", "aspectmode": "data"},
+                      scene2={"xaxis_title": "X", "yaxis_title": "Y", "zaxis_title": "Z", "aspectmode": "data"})
+    return fig
+
+
 app.layout = html.Div(style={"fontFamily": "system-ui, sans-serif", "padding": "0 16px 16px", "background": "#fff", "color": "#111", "minHeight": "100vh"}, children=[
     html.H2("EMOM · rejestrator powtórzeń"),
     html.Div(style={"display": "flex", "gap": "12px", "alignItems": "center", "flexWrap": "wrap"}, children=[
@@ -133,6 +153,7 @@ app.layout = html.Div(style={"fontFamily": "system-ui, sans-serif", "padding": "
                 html.Button("Odśwież listę", id="btn-refresh"),
             ]),
             html.Div(id="session-meta", style={"whiteSpace": "pre-wrap", "fontFamily": "monospace", "fontSize": "12px"}),
+            dcc.Graph(id="browse-3d"),
             dcc.Graph(id="browse-graph"),
         ]),
     ]),
@@ -241,10 +262,10 @@ def session_options(_r, tab, _saved):
     return [{"label": session_label(m), "value": m["path"]} for m in list_sessions()]
 
 
-@app.callback(Output("browse-graph", "figure"), Output("session-meta", "children"), Input("sessions", "value"))
+@app.callback(Output("browse-graph", "figure"), Output("browse-3d", "figure"), Output("session-meta", "children"), Input("sessions", "value"))
 def browse(paths):
     if not paths:
-        return go.Figure(layout={"height": 300}), ""
+        return go.Figure(layout={"height": 300}), go.Figure(layout={"height": 200}), ""
     metas = {m["path"]: m for m in list_sessions()}
     frames, lines = [], []
     for p in paths:
@@ -254,7 +275,7 @@ def browse(paths):
         frames.append((label, df))
         lines.append(f"{m.get('day','')} {m.get('file','')}: {m.get('exercise_name','')} · {m.get('mount','')} · {m.get('true_reps','?')} powt. · "
                      f"{m.get('duration_s','')} s · {m.get('samples','')} próbek · tempo {m.get('tempo','')} · zgubione {m.get('dropped_frames','')} · {m.get('notes','')}")
-    return axis_figure(frames, height=1200), "\n".join(lines)
+    return axis_figure(frames, height=1200), figure_3d(frames), "\n".join(lines)
 
 
 def main():
