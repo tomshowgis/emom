@@ -23,7 +23,7 @@ def render(stem: str, out: Path | None = None) -> Path:
     r = count_reps(s.df, profile=PROFILES.get(s.exercise, DEFAULT))
     t = s.df["t_s"].values
     fig, ax = plt.subplots(3, 1, figsize=(14, 8), sharex=True)
-    ax[0].plot(t, s.df[r.axis], lw=0.8); ax[0].set_ylabel(f"{r.axis} raw")
+    ax[0].plot(t, s.df[r.axis] if r.axis in s.df else r.signal, lw=0.8); ax[0].set_ylabel(f"{r.axis} raw" if r.axis in s.df else "pca (band)")
     ax[1].plot(t, r.signal, lw=1, color="#1f77b4"); ax[1].set_ylabel(f"band-pass @ {1/r.period_s:.2f} Hz")
     rej = [p for p in r.peaks_all if p not in r.peak_times]
     ax[1].plot(r.peak_times, np.interp(r.peak_times, t, r.signal), "go", label=f"liczone {r.count}")

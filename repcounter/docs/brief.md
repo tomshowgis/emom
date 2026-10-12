@@ -65,7 +65,7 @@ Po każdym etapie zatrzymaj się i poczekaj na mój wynik testu.
 - Utwórz `CLAUDE.md` w katalogu głównym repo. Ma opisywać całe repozytorium: istniejący timer i licznik, z powyższymi ustaleniami. Aktualizuj go, gdy coś zmienimy.
 
 ## Stan etapów (2026-10-11)
-Etap 0 i 1 zamknięte. Etap 2 w toku: algorytm bazowy daje 28/34 serii w tolerancji (9,1 % błędnych powtórzeń) na 8 ćwiczeniach, opis i znane błędy w `docs/stage2-baseline.md`. Nagrania pompek i podciągnięć (czujnik na klatce) jeszcze nie ma.
+Etap 0 i 1 zamknięte. Etap 2 w toku: algorytm bazowy daje 31/34 serii w tolerancji (6,7 % błędnych powtórzeń) na 8 ćwiczeniach, opis i znane błędy w `docs/stage2-baseline.md`. Nagrania pompek i podciągnięć (czujnik na klatce) jeszcze nie ma.
 
 ## Pierwszy krok
 Przeczytaj pliki w repozytorium, sprawdź system na moim komputerze, zadaj mi pytania, bez których nie ruszysz, i przedstaw plan etapu 0. Kodu jeszcze nie pisz.
